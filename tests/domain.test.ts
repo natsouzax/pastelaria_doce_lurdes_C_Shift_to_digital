@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assertStaffRole } from '../src/lib/roles';
 import { ApiError } from '../src/lib/http';
-import { assertLeadTime, balanceDue, cancellationRefundCents, depositRequired, nextOrderStatus, parsePickup, pickupIsWithin48Hours } from '../src/lib/domain';
+import { assertLeadTime, balanceDue, cancellationRefundCents, capacityReserved, depositRequired, nextOrderStatus, parsePickup, pickupIsWithin48Hours } from '../src/lib/domain';
 
 const now = new Date('2026-11-16T10:00:00.000Z');
 
@@ -32,6 +32,16 @@ test('order state derives from all item states without marking unrelated items r
   assert.equal(nextOrderStatus('confirmed', ['in_progress', 'to_do']), 'in_production');
   assert.equal(nextOrderStatus('in_production', ['ready', 'in_progress']), 'in_production');
   assert.equal(nextOrderStatus('in_production', ['ready', 'ready']), 'ready');
+});
+
+test('only a confirmed personalized cake occupies a capacity slot', () => {
+  assert.equal(capacityReserved('confirmed', 0), false);
+  assert.equal(capacityReserved('ready', 0), false);
+  assert.equal(capacityReserved('delivered', 0), false);
+  assert.equal(capacityReserved('pending', 1), false);
+  assert.equal(capacityReserved('cancelled', 1), false);
+  assert.equal(capacityReserved('confirmed', 1), true);
+  assert.equal(capacityReserved('in_production', 2), true);
 });
 
 test('48 hour refund boundary is exact', () => {

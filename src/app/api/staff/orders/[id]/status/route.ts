@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { requireStaff } from '@/lib/authz';
 import { db } from '@/lib/db';
-import { cancellationRefundCents } from '@/lib/domain';
+import { cancellationRefundCents, capacityReserved } from '@/lib/domain';
 import { ApiError, assertSameOrigin, jsonError, parseJson } from '@/lib/http';
 import { NextResponse } from 'next/server';
 
@@ -29,11 +29,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!order) throw new ApiError(404, 'NOT_FOUND', 'Encomenda não encontrada.');
       const paidRows = await tx`select coalesce(sum(case when kind='refund' then -amount_cents else amount_cents end),0)::integer as paid from public.simulated_payments where order_id=${id}::uuid`;
       const paid = Number(paidRows[0].paid);
+      const cakeRows = await tx`select count(*)::integer as count from public.order_items where order_id=${id}::uuid and is_custom_cake`;
+      const customCakeCount = Number(cakeRows[0].count);
       let refund: { id: string; amount_cents: number } | null = null;
       if (body.status === 'confirmed') {
         if (order.status !== 'pending' || order.capacity_resolution_required) throw new ApiError(409, 'INVALID_STATE', 'Pedido não pode ser confirmado neste estado.');
-        const cakes = await tx`select count(*)::integer as count from public.order_items where order_id=${id}::uuid and is_custom_cake`;
-        if (Number(cakes[0].count) > 0) throw new ApiError(409, 'INVALID_STATE', 'Bolos personalizados exigem sinal e reserva atómica de capacidade.');
+        if (customCakeCount > 0) throw new ApiError(409, 'INVALID_STATE', 'Bolos personalizados exigem sinal e reserva atómica de capacidade.');
         await tx`update public.orders set status='confirmed',confirmed_at=now(),updated_at=now() where id=${id}::uuid`;
       } else if (body.status === 'delivered') {
         if (order.status !== 'ready') throw new ApiError(409, 'INVALID_STATE', 'Só encomendas prontas podem ser entregues.');
@@ -50,7 +51,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         await tx`update public.orders set status='cancelled',cancelled_at=now(),cancellation_reason=${body.reason},updated_at=now() where id=${id}::uuid`;
       }
       return { status: body.status, paid: body.status === 'cancelled' && refund ? 0 : paid, refund,
-        total: Number(order.total_cents), reserved: body.status !== 'cancelled' && Boolean(order.pickup_date) };
+        total: Number(order.total_cents), reserved: capacityReserved(body.status, customCakeCount) };
     });
     return NextResponse.json({ id, status: result.status, amount_paid_cents: result.paid,
       balance_due_cents: Math.max(0, result.total - result.paid), capacity_reserved: result.reserved,

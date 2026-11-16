@@ -1,5 +1,6 @@
 import { requireStaff } from '@/lib/authz';
 import { db } from '@/lib/db';
+import { capacityReserved } from '@/lib/domain';
 import { ApiError, jsonError } from '@/lib/http';
 import { NextResponse } from 'next/server';
 
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
     const rows = await db`
       select o.id, o.status, o.pickup_at, o.customer_name, o.customer_phone, o.notes, o.source,
         o.total_cents, o.deposit_required_cents, o.capacity_resolution_required, o.pickup_date,
+        (select count(*)::integer from public.order_items i where i.order_id=o.id and i.is_custom_cake) as custom_cake_count,
         (select coalesce(sum(case when p.kind = 'refund' then -p.amount_cents else p.amount_cents end),0)::integer from public.simulated_payments p where p.order_id=o.id) as amount_paid_cents,
         (select coalesce(jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,'amount_cents',p.amount_cents,'recorded_at',p.recorded_at,'note',p.note) order by p.recorded_at),'[]'::jsonb) from public.simulated_payments p where p.order_id=o.id) as payments,
         (select coalesce(jsonb_agg(jsonb_build_object(
@@ -51,7 +53,7 @@ export async function GET(request: Request) {
           source: row.source, total_cents: Number(row.total_cents), amount_paid_cents: amountPaid,
           deposit_required_cents: Number(row.deposit_required_cents),
           balance_due_cents: Math.max(0, Number(row.total_cents) - amountPaid), payments: row.payments,
-          capacity_reserved: !['pending','cancelled'].includes(row.status),
+          capacity_reserved: capacityReserved(String(row.status), Number(row.custom_cake_count)),
           capacity_resolution_required: Boolean(row.capacity_resolution_required) } : {}) };
       return base;
     });

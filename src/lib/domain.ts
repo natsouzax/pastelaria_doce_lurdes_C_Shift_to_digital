@@ -46,3 +46,7 @@ export function cancellationRefundCents(paidCents: number, depositCents: number,
 export function balanceDue(total: number, paid: number) {
   return Math.max(0, total - paid);
 }
+
+export function capacityReserved(status: string, customCakeCount: number) {
+  return customCakeCount > 0 && ['confirmed', 'in_production', 'ready', 'delivered'].includes(status);
+}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { requireStaff } from '@/lib/authz';
 import { db } from '@/lib/db';
-import { balanceDue } from '@/lib/domain';
+import { balanceDue, capacityReserved } from '@/lib/domain';
 import { samePaymentRequest } from '@/lib/payment-idempotency';
 import { ApiError, assertSameOrigin, dbError, jsonError, parseJson } from '@/lib/http';
 import { NextResponse } from 'next/server';
@@ -71,7 +71,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ payment: { id: response.payment_id, kind: body.kind, amount_cents: body.amount_cents },
       order: { id, status: response.status, total_cents: response.total_cents, deposit_required_cents: response.deposit_required_cents,
         amount_paid_cents: response.paid, balance_due_cents: balanceDue(response.total_cents, response.paid),
-        capacity_reserved: ['confirmed','in_production','ready','delivered'].includes(response.status) && !response.resolution_required }, resolution_required: response.resolution_required },
+        capacity_reserved: capacityReserved(response.status, response.deposit_required_cents > 0 ? 1 : 0) && !response.resolution_required }, resolution_required: response.resolution_required },
     { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return jsonError(error); }
 }
