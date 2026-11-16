@@ -8,12 +8,12 @@ Arquitetura/API, fluxos, backend e frontend estão integrados em `main` (PRs #2,
 
 Executado neste checkout com Node.js 24.19.0 e npm 11.17.0:
 
-- `npm ci` — concluído.
+- `npm ci` — concluído com o lockfile integrado; auditoria npm reportou 0 vulnerabilidades.
 - `npm run typecheck` — passou.
-- `npm test` — 11 passaram; o teste de concorrência foi ignorado porque não havia `DATABASE_URL` apontando para PostgreSQL local.
-- `npm run build` — verificar resultado após integrar/rebasear este README.
+- `npm test` — 15 passaram, 1 ignorado; o teste de concorrência foi ignorado porque não havia `DATABASE_URL` apontando para PostgreSQL local.
+- `npm run build` — passou; Next.js compilou as páginas e rotas da API.
 
-Não foi possível iniciar uma instância Supabase local porque Docker não está instalado neste ambiente. Também não foi possível usar Supabase remoto: a conta ligada atingiu o limite de dois projetos gratuitos. Portanto, não foram executados a migração contra PostgreSQL real, os scripts de seed contra uma base real, testes de permissões com sessões Auth reais, o percurso completo no navegador nem a verificação de deploy. O teste de migração usa PGlite; não substitui um teste de integração Supabase/PostgreSQL.
+Não foi possível iniciar uma instância Supabase local porque Docker não está instalado neste ambiente. Também não foi possível usar Supabase remoto: a conta ligada atingiu o limite de dois projetos gratuitos. Portanto, apesar de o comando da CLI para migrações estar verificado, não foi executada a migração contra PostgreSQL real, os scripts de seed contra uma base real, testes de permissões com sessões Auth reais, o percurso completo no navegador nem a verificação de deploy. O teste de migração usa PGlite; não substitui um teste de integração Supabase/PostgreSQL.
 
 ## Instalação local
 
@@ -50,7 +50,7 @@ O schema inicial está em `supabase/migrations/20261116210057_initial_schema.sql
 
 Os dados históricos não têm datas absolutas na fonte. O seed atribui a semana de 17–22/11/2026 e documenta as datas, estados e valores inferidos em [seed/README.md](seed/README.md). Estas datas históricas não são a fixture de relógio da demo. A fixture do passo a passo usa T0=17/11/2026 10:00 Europe/Lisbon, pedido principal para 24/11 às 10:00, pedido demasiado cedo para 19/11 às 10:00 e segunda-feira 23/11. O código atual usa o relógio real do servidor; não há injeção de relógio na aplicação, portanto a repetição futura das datas do roteiro exige ajustar a fixture ou executar num ambiente de teste com relógio compatível.
 
-O signup público está desativado. Para provisionar perfis de teste num projeto local/autorizado:
+O signup público está desativado na configuração local (`supabase/config.toml`); manter também desativado no projeto hospedado. Para provisionar perfis de teste num projeto local/autorizado:
 
 1. Crie utilizadores internos em Supabase Auth (Dashboard/Studio ou mecanismo administrativo autorizado), definindo as palavras-passe fora do repositório.
 2. Copie o UUID de cada utilizador e insira-o na tabela protegida `public.staff_profiles`, atribuindo `manager` ou `production`:
@@ -65,9 +65,21 @@ values ('<UUID_DO_UTILIZADOR>', 'production');
 
 Não existem contas de demonstração pré-criadas nem credenciais para publicar. A Gestora regista pagamentos e entrega encomendas; Produção só avança estado por item. As rotas verificam a sessão Auth e o perfil ativo no servidor.
 
-## Cenário oficial e regras
+## Cenário oficial de demonstração
 
-Os sete passos e os contratos de API estão em [docs/requisitos.md](docs/requisitos.md), [docs/api.md](docs/api.md) e [docs/fluxos.md](docs/fluxos.md). O cenário requer bolo personalizado de chocolate de 2 kg, mensagem “Parabéns Inês”, alergia a frutos secos, sinal de 17 € num total de 56 € e saldo de 39 €.
+Os contratos completos estão em [docs/requisitos.md](docs/requisitos.md), [docs/api.md](docs/api.md) e [docs/fluxos.md](docs/fluxos.md). A fixture usa T0=17/11/2026 10:00 Europe/Lisbon, levantamento principal em 24/11/2026 às 10:00, prazo curto em 19/11 e segunda-feira em 23/11. Estas datas de demonstração são distintas das datas históricas inferidas no seed.
+
+Roteiro previsto para a demonstração:
+
+1. Cliente cria bolo personalizado de chocolate de 2 kg com mensagem “Parabéns Inês” e alergia a frutos secos; guarda o código apresentado uma vez.
+2. Pedido para 19/11 é rejeitado por antecedência insuficiente.
+3. Pedido para 23/11 é rejeitado por encerramento à segunda-feira.
+4. Gestora confirma o pedido principal após registar sinal de 17 € sobre o total de 56 €; saldo calculado de 39 €.
+5. Produção encontra o bolo para 24/11 e vê a alergia declarada em destaque, separada dos alergénios do produto.
+6. A fixture já contém cinco bolos confirmados para 24/11; com o pedido principal confirmado, há seis. Outro bolo nessa data é rejeitado por capacidade.
+7. Cliente consulta pelo código; Produção avança o item até Pronto; Gestora regista o restante e marca Entregue.
+
+Este roteiro ainda não foi executado ponta a ponta, pois não há acesso a uma base Supabase nesta sessão. O backend usa o relógio real; a aplicação ainda não permite injetar T0 para repetir a demo em qualquer data.
 
 `POST /api/orders` recusa uma data que já tenha seis bolos personalizados confirmados, sem criar pedido ou código (`409 CAPACITY_FULL`). Um pedido aceite fica Pendente e não reserva vaga; a confirmação revalida capacidade e reserva-a atomicamente. Cada bolo personalizado ocupa uma vaga. Cancelados libertam vaga; pedidos confirmados e estados seguintes contam para a data.
 
