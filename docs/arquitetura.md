@@ -4,12 +4,12 @@ Este documento regista o desenho antes da implementação. Preencher cada decis�
 
 | Decisão | Escolha | Porquê / consequência |
 | --- | --- | --- |
-| Frontend | Por definir | |
-| Backend e API REST | Por definir | |
-| Base de dados (MySQL ou PostgreSQL) | PostgreSQL hospedado no Supabase, candidato | Supabase fornece PostgreSQL, que satisfaz o requisito relacional; verificar a ligação e segurança quando a stack estiver definida. |
-| Autenticação de Gestora e Produção | Por definir | |
+| Frontend | Next.js + TypeScript + Tailwind; SWR onde houver atualização no cliente | Stack conhecida pelo utilizador. SWR é ferramenta de busca/atualização de dados na interface, não substitui API nem regras de servidor. |
+| Backend e API REST | Route Handlers do Next.js em Node.js, proposta | Mantém um único projeto TypeScript e expõe rotas REST. Regras de negócio e permissões ficam no servidor. |
+| Base de dados (MySQL ou PostgreSQL) | PostgreSQL hospedado no Supabase | Supabase fornece PostgreSQL, que satisfaz o requisito relacional. |
+| Autenticação de Gestora e Produção | Supabase Auth, proposta | Login apenas para equipa interna; autorização verificada nas rotas do servidor. Confirmar detalhes antes de implementar. |
 | Seguimento sem conta pelo Cliente | Por definir | |
-| Implantação ou Docker | Vercel, candidata | Publicação online pode valer os 5 pontos de boas práticas; Docker é opcional. |
+| Implantação ou Docker | Vercel, proposta | Publicação online pode valer os 5 pontos de boas práticas; Docker é opcional. |
 
 ## Contratos a desenhar
 

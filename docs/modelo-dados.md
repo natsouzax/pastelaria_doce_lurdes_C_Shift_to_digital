@@ -23,6 +23,17 @@ Este desenho cobre os cinco requisitos obrigatórios do dossier. A base de dados
 - O servidor valida prazo, segunda-feira, limite diário, transições de estado, saldo e permissões. A definição exata de **quando** um pedido ocupa uma das seis vagas ainda está pendente.
 - A data/hora de levantamento deve ser tratada no fuso `Europe/Lisbon`; os oito pedidos históricos não têm data completa no ficheiro original, por isso o seed precisa de uma escolha documentada.
 
+### Exemplo de encomenda com unidades diferentes
+
+Uma encomenda pode ter duas linhas de itens, sem criar colunas especiais para cada tipo de produto:
+
+| Item | Quantidade | Unidade guardada | Preço por unidade | Subtotal |
+| --- | ---: | --- | ---: | ---: |
+| Bolo personalizado de chocolate | 2 | kg | 28 € | 56 € |
+| Mini-quiches | 4 | dúzia | 12 € | 48 € |
+
+Total = 104 €. Como inclui bolo personalizado, a regra do sinal incide sobre o total da encomenda: 30% = 31,20 €, arredondado ao euro = 31 €. Esta aplicação da regra a uma encomenda mista deve ser documentada, pois o dossier não dá um exemplo desse caso.
+
 ## Questões de revisão antes de implementar
 
 1. O código de seguimento sozinho permite consultar dados pessoais? Se sim, que dados aparecem e como evitar enumeração?
