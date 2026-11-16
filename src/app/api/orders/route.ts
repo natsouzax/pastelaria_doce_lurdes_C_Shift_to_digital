@@ -48,6 +48,14 @@ export async function POST(request: Request) {
         return { item, product, custom, weight, subtotal };
       });
       const hasCustom = lines.some(l => l.custom);
+      const requestedCakes = lines.filter(l => l.custom).length;
+      if (requestedCakes) {
+        const occupied = await tx`select count(*)::integer as count from public.order_items i
+          join public.orders o on o.id=i.order_id
+          where o.pickup_date=${pickupDate}::date and o.status in ('confirmed','in_production','ready','delivered')
+            and i.is_custom_cake`;
+        if (Number(occupied[0].count) + requestedCakes > 6) throw new ApiError(409, 'CAPACITY_FULL', 'A data já tem seis bolos personalizados reservados.');
+      }
       const deposit = depositRequired(totalCents, hasCustom);
       const orders = await tx`
         insert into public.orders (tracking_code_hash, customer_name, customer_phone, pickup_at, pickup_date, notes, source, total_cents, deposit_required_cents)

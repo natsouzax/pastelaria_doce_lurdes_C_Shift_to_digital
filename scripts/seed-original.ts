@@ -3,15 +3,18 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { depositRequired } from '../src/lib/domain';
 import { loadEnvConfig } from '@next/env';
+import postgres from 'postgres';
+async function main() {
 loadEnvConfig(process.cwd());
-const { db } = await import('../src/lib/db');
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL é obrigatório para carregar o seed.');
+const db = postgres(process.env.DATABASE_URL, { prepare: false });
 
 const unit = z.enum(['kg','unidade','cento','duzia','meia_duzia']);
 const orderStatus = z.enum(['pending','confirmed','in_production','ready','delivered','cancelled']);
 const schema = z.object({
   date_assignment_notes: z.string().trim().min(20),
   products: z.array(z.object({ ref:z.string().min(1),name:z.string().min(1),category:z.string(),unit,unit_price_cents:z.number().int().nonnegative(),allergens:z.array(z.string()),min_lead_hours:z.number().int().nonnegative(),is_custom_cake:z.boolean(),active:z.boolean().default(true) })).length(11),
-  orders: z.array(z.object({ ref:z.string().min(1),customer_name:z.string().min(1),customer_phone:z.string().min(1),pickup_at:z.string(),pickup_date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),pickup_weekday:z.enum(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']),status:orderStatus,notes:z.string().nullable().optional(),source:z.enum(['online','counter','phone']).default('counter'),items:z.array(z.object({product_ref:z.string(),quantity:z.number().positive(),weight_kg:z.number().positive().nullable().optional(),cake_message:z.string().nullable().optional(),declared_allergies:z.array(z.string()).default([])})).min(1) })).length(8),
+  orders: z.array(z.object({ ref:z.string().min(1),customer_name:z.string().min(1),customer_phone:z.string().min(1),pickup_at:z.string(),pickup_date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),pickup_weekday:z.enum(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']),status:orderStatus,deposit_status:z.enum(['paid','unpaid','not_applicable']),notes:z.string().nullable().optional(),source:z.enum(['online','counter','phone']).default('counter'),items:z.array(z.object({product_ref:z.string(),quantity:z.number().positive(),weight_kg:z.number().positive().nullable().optional(),cake_message:z.string().nullable().optional(),declared_allergies:z.array(z.string()).default([])})).min(1) })).length(8),
 }).strict();
 
 function stableUuid(value:string) {
@@ -50,6 +53,8 @@ await db.begin(async tx => {
       total+=subtotal; items.push({item,product,productId,custom,subtotal});
     }
     const deposit=depositRequired(total,items.some(i=>i.custom));
+    if (order.deposit_status === 'paid' && (!deposit || order.status === 'pending')) throw new Error(`Sinal Pago incoerente em ${order.ref}.`);
+    if (order.deposit_status === 'unpaid' && order.status !== 'pending') throw new Error(`Sinal Por pagar incoerente em ${order.ref}.`);
     const trackingHash=createHash('sha256').update(`historical-order:${order.ref}`).digest('hex');
     await tx`insert into public.orders(id,tracking_code_hash,customer_name,customer_phone,pickup_at,pickup_date,status,notes,source,total_cents,deposit_required_cents)
       values (${orderId}::uuid,${trackingHash},${order.customer_name},${order.customer_phone},${order.pickup_at}::timestamptz,${order.pickup_date}::date,${order.status}::public.order_status,${order.notes??null},${order.source}::public.order_source,${total},${deposit})
@@ -59,7 +64,16 @@ await db.begin(async tx => {
       await tx`insert into public.order_items(order_id,product_id,product_name_snapshot,unit_snapshot,unit_price_cents_snapshot,quantity,subtotal_cents,is_custom_cake,weight_kg,cake_message,declared_allergies)
         values (${orderId}::uuid,${productId}::uuid,${product.name},${product.unit}::public.product_unit,${product.unit_price_cents},${custom?1:item.quantity},${subtotal},${custom},${custom?item.weight_kg??null:null},${custom?item.cake_message??null:null},${custom?item.declared_allergies:[]})`;
     }
+    if (order.deposit_status === 'paid') {
+      const paymentId=stableUuid(`cliente-c:payment:deposit:${order.ref}`);
+      const paymentKey=stableUuid(`cliente-c:payment-key:deposit:${order.ref}`);
+      await tx`insert into public.simulated_payments(id,order_id,kind,amount_cents,recorded_by,note,external_payment_received,idempotency_key)
+        values (${paymentId}::uuid,${orderId}::uuid,'deposit',${deposit},null,'Sinal Pago na agenda original; montante inferido pela regra MVP de 30%.',true,${paymentKey}::uuid)
+        on conflict(id) do update set amount_cents=excluded.amount_cents,note=excluded.note,external_payment_received=excluded.external_payment_received`;
+    }
   }
 });
 console.info(`Seed Cliente C carregado: ${data.products.length} produtos e ${data.orders.length} pedidos.`);
 await db.end();
+}
+void main().catch(error => { console.error(error); process.exitCode = 1; });

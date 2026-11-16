@@ -15,7 +15,7 @@ Não definir `DATABASE_URL` como variável `NEXT_PUBLIC_*`. O código de seguime
 
 ## Perfis internos
 
-Criar os utilizadores em Supabase Auth e inserir o respetivo UUID em `public.staff_profiles` com perfil `manager` ou `production`. O signup público está desativado na configuração local. Na configuração hospedada, aplicar a mesma opção no Supabase Auth. Essa tabela não aceita escrita pela Data API pública. Nunca atribuir perfil a partir de metadata editável pelo utilizador, nem incluir credenciais de demonstração no repositório. Para a fixture de seis bolos, definir `DEMO_RECORDED_BY` com o UUID de um utilizador Gestora existente.
+Criar os utilizadores em Supabase Auth e inserir o respetivo UUID em `public.staff_profiles` com perfil `manager` ou `production`. O signup público está desativado na configuração local. Na configuração hospedada, aplicar a mesma opção no Supabase Auth. Essa tabela não aceita escrita pela Data API pública. Nunca atribuir perfil a partir de metadata editável pelo utilizador, nem incluir credenciais de demonstração no repositório. `DEMO_RECORDED_BY` é opcional e pode apontar para o UUID de uma Gestora; na sua ausência, o pagamento da fixture fica sem ator, como dado importado.
 
 Os Route Handlers validam a sessão com Supabase Auth e consultam `staff_profiles` no servidor em cada ação protegida. A Produção não recebe contactos, notas gerais ou pagamentos. A Gestora é a única que regista pagamentos e entrega encomendas.
 
@@ -23,10 +23,10 @@ As mutações de equipa também verificam que o header `Origin` corresponde à o
 
 ## Seed
 
-- `npm run seed:original` carrega o arquivo local `seed/original-data.json` e exige exatamente 11 produtos e 8 encomendas.
-- `npm run seed:demo` carrega a fixture separada com seis itens de bolo personalizados para 8 de dezembro de 2026.
+- `npm run seed:original` carrega o arquivo versionado `seed/original-data.json` e exige exatamente 11 produtos e 8 encomendas.
+- `npm run seed:demo` carrega cinco bolos adicionais para 24 de novembro de 2026; o sexto é criado pelo fluxo público.
 
-O arquivo original não está no histórico nem nos worktrees revistos. Por isso não há valores inventados no seed; o primeiro comando falha com ficheiro ausente até a fonte ser colocada localmente. As datas completas dos oito registos só podem ser documentadas quando a agenda original for fornecida. Ver [seed/README.md](seed/README.md).
+Os valores vêm da folha original em `content_project` do checkout principal. Atribuições de datas, estados e montantes inferidos estão documentados em [seed/README.md](seed/README.md).
 
 ## Verificações
 

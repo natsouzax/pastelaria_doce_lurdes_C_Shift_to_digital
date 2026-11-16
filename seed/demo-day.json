@@ -1,18 +1,10 @@
 {
-  "fixture": "demo-day-six-custom-cakes",
-  "pickup_date": "2026-12-08",
+  "fixture": "demo-2026-11-24",
+  "reference_at": "2026-11-17T10:00:00+00:00",
+  "pickup_date": "2026-11-24",
   "pickup_timezone": "Europe/Lisbon",
-  "product": {
-    "name": "Bolo personalizado de chocolate",
-    "category": "Demonstração",
-    "unit": "kg",
-    "unit_price_cents": 2800,
-    "allergens": ["glúten", "ovos", "leite"],
-    "min_lead_hours": 120,
-    "is_custom_cake": true
-  },
+  "product_ref": "bolo-chocolate",
   "cakes": [
-    { "ref": "ines-chocolate-2kg", "customer_name": "Inês (demonstração)", "weight_kg": 2, "message": "Parabéns Inês", "allergies": ["frutos secos"] },
     { "ref": "demo-cake-2", "customer_name": "Cliente demo 2", "weight_kg": 1, "message": null, "allergies": [] },
     { "ref": "demo-cake-3", "customer_name": "Cliente demo 3", "weight_kg": 1, "message": null, "allergies": [] },
     { "ref": "demo-cake-4", "customer_name": "Cliente demo 4", "weight_kg": 1, "message": null, "allergies": [] },

@@ -1,23 +1,19 @@
-# Seeds e origem dos dados
+# Origem e reprodução dos dados
 
-## Dados originais Cliente C
+`original-data.json` transcreve os 11 produtos e 8 encomendas de `content_project/Dados C - Pastelaria Doce Lurdes.xlsx` no checkout principal. Os valores, contactos fictícios, mensagens, alergias, notas textuais e coluna `Sinal` foram preservados. O ficheiro foi versionado para permitir `npm run seed:original` num clone limpo. O script valida a contagem, as datas e os dias da semana e faz upsert com IDs estáveis.
 
-O dossier e os anexos com os 11 produtos e 8 pedidos não estão neste repositório nem nos worktrees locais revistos. O seed original não preenche valores fictícios: `scripts/seed-original.ts` lê um ficheiro local `seed/original-data.json` e valida as contagens antes de escrever.
+## Datas atribuídas
 
-O ficheiro local deve incluir os produtos, encomendas, linhas, valores originais e, para cada encomenda, `pickup_weekday`, `pickup_date` atribuída e instante ISO 8601. `date_assignment_notes` deve explicar a regra aplicada (por exemplo, calendário de referência escolhido e como cada dia da semana foi mapeado). O seed valida que a data atribuída cai no dia da semana informado. As datas não podem ser inventadas sem a agenda fonte.
+A agenda original contém apenas dia da semana e hora. Para tornar as linhas reproduzíveis, atribuí a semana de **17 a 22 de novembro de 2026**, em `Europe/Lisbon`: quinta 19 (Marta), sexta 20 (Escola), sábado 21 (Sofia, Inês, Rui, Catarina), domingo 22 (Pedro, Ana Luísa). Estas datas são inferências, não datas da folha. Também foram inferidos `source=counter`, `confirmed` para itens comuns e bolos com sinal Pago, e `pending` para Pedro com sinal Por pagar.
 
-O arquivo local está ignorado pelo Git para que material não revisto não entre no commit. Não inserir contactos reais da equipa nem credenciais.
+Sofia tem sinal Pago inferido em **17 €** (bolo 2 kg × 28 € = 56 €, 30% arredondados para cima); Catarina tem **24 €** (2,5 kg × 32 € = 80 €). `seed-original.ts` grava ambos em `simulated_payments`, marcados como pagamento externo histórico. Pedro não recebe registo financeiro. A folha não fornece montantes nem colaborador que registou os sinais; por isso `recorded_by` é `NULL` apenas nesses registos importados. Pagamentos feitos pela API exigem sempre Gestora autenticada. `DEMO_RECORDED_BY` é opcional na fixture; quando omitido, indica igualmente registo importado, sem fingir uma conta da equipa.
 
-## Fixture separada da demonstração
+## Fixture da demonstração
 
-`demo-day.json` é inteiramente fictícia e não substitui nenhum dos oito pedidos da origem. Contém seis registos separados, cada um com um item/ID de bolo personalizado. O primeiro ilustra o bolo de chocolate de 2 kg por 56 €, com mensagem e alergia a frutos secos; os restantes cinco ocupam as outras vagas. A data escolhida é terça-feira, 8 de dezembro de 2026, 10:00 em Europe/Lisbon. É posterior ao dia de referência da implementação (16 de novembro de 2026) e cumpre a antecedência de cinco dias.
+`demo-day.json` contém cinco bolos individuais adicionais para **24 de novembro de 2026, 10:00**, usando o produto chocolate do catálogo original. O sexto é o bolo de 2 kg/56 € criado pelo percurso público em T0 = **17 de novembro de 2026, 10:00**. Execute `npm run seed:original` antes de `npm run seed:demo`. A fixture aceita até um bolo confirmado já presente nessa data. Cada linha tem ID, peso, mensagem e alergias próprios. O roteiro usa 19/11 para rejeição por antecedência e segunda-feira 23/11 para rejeição do dia fechado. O relógio da aplicação continua real; para reproduzir integralmente o percurso, o ambiente de teste precisa de relógio injetável/fixo em T0.
 
-A fixture cria também um produto ativo na categoria `Demonstração`, a 28 €/kg. É um item extra claramente identificado e não altera os 11 produtos de origem. O seed recusa a execução se já houver bolos confirmados nessa data, para não misturar a fixture com encomendas locais.
+## Capacidade, sinal e cancelamento
 
-## Resolução do sinal quando a vaga desaparece
+`pending` nunca reserva vaga. Na criação pública, uma pré-verificação devolve `CAPACITY_FULL` se os bolos já confirmados somados aos novos excederem seis. Na confirmação, uma transação PostgreSQL bloqueia a data, conta apenas `confirmed`, `in_production`, `ready`, `delivered` e revalida a capacidade. Se o sinal externo já foi recebido mas a vaga desapareceu, o pedido fica `pending` com `capacity_resolution_required=true` e sem reserva. A Gestora decide operacionalmente entre nova data (rota futura) e reembolso simulado que cancela o pedido.
 
-`Pendente` nunca ocupa vaga, inclusive quando ficou sinal registado. Confirmações de bolos personalizados bloqueiam a data numa transação PostgreSQL. Se um sinal já recebido vencer a corrida, o registo fica Pendente com `capacity_resolution_required=true` e não conta para a capacidade. A Gestora resolve por reembolso simulado (que cancela o pedido) ou por reagendamento manual fora desta API; não existe operação de alteração de data no contrato atual. Não se repete o registo do sinal.
-
-## Cancelamento e saldo
-
-Até 48 horas antes do levantamento, o cancelamento reembolsa de forma simulada o sinal líquido quando não houve pagamento acima do sinal. A menos de 48 horas, o sinal fica retido. Pagamentos além do sinal exigem resolução manual e a API não os retém nem reembolsa automaticamente. Entrega exige todos os itens Prontos e saldo zero. Um bolo de 56 € exige sinal de 17 € e saldo de 39 €.
+Até 48 horas antes do levantamento, o cancelamento reembolsa o sinal líquido simulado quando não houve pagamento acima dele. Depois desse limite, o sinal fica retido. Pagamentos acima do sinal exigem resolução manual. Não há ligação real a pagamentos ou mensagens.

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { requireStaff } from '@/lib/authz';
 import { db } from '@/lib/db';
 import { balanceDue } from '@/lib/domain';
+import { samePaymentRequest } from '@/lib/payment-idempotency';
 import { ApiError, assertSameOrigin, dbError, jsonError, parseJson } from '@/lib/http';
 import { NextResponse } from 'next/server';
 
@@ -26,9 +27,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     try {
       response = await db.begin(async tx => {
         await tx`select pg_advisory_xact_lock(hashtextextended(${`${staff.userId}:${key}`},0))`;
-        const previous = await tx`select id, order_id, kind, amount_cents from public.simulated_payments where recorded_by=${staff.userId}::uuid and idempotency_key=${key}::uuid`;
+        const previous = await tx`select id, order_id, kind, amount_cents, external_payment_received, note from public.simulated_payments where recorded_by=${staff.userId}::uuid and idempotency_key=${key}::uuid`;
         if (previous[0]) {
-          if (String(previous[0].order_id) !== id || previous[0].kind !== body.kind || Number(previous[0].amount_cents) !== body.amount_cents) throw new ApiError(409, 'INVALID_STATE', 'Chave idempotente já utilizada com outros dados.');
+          if (!samePaymentRequest(previous[0] as { order_id: string; kind: string; amount_cents: number; external_payment_received: boolean; note: string | null }, id, body)) throw new ApiError(409, 'INVALID_STATE', 'Chave idempotente já utilizada com outros dados.');
           const rows = await tx`select o.status, o.total_cents, o.deposit_required_cents, o.capacity_resolution_required,
             (select coalesce(sum(case when kind='refund' then -amount_cents else amount_cents end),0)::integer from public.simulated_payments where order_id=o.id) as paid
             from public.orders o where o.id=${id}::uuid`;

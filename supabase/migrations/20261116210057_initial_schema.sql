@@ -75,7 +75,7 @@ create table public.simulated_payments (
   kind public.payment_kind not null,
   amount_cents integer not null check (amount_cents > 0),
   recorded_at timestamptz not null default now(),
-  recorded_by uuid not null references auth.users(id),
+  recorded_by uuid references auth.users(id),
   note text,
   external_payment_received boolean not null default false,
   idempotency_key uuid not null,
@@ -143,11 +143,11 @@ begin
   from (
     select o.id, count(*) filter (where oi.is_custom_cake) as custom_count
     from public.orders o join public.order_items oi on oi.order_id = o.id
-    where o.pickup_date = v_order.pickup_date and o.status <> 'cancelled'
+    where o.pickup_date = v_order.pickup_date and o.status in ('confirmed','in_production','ready','delivered')
     group by o.id
   ) i
   join public.orders reserved on reserved.id = i.id
-  where reserved.status <> 'pending';
+  where reserved.status in ('confirmed','in_production','ready','delivered');
 
   if v_reserved_count + v_custom_count > 6 and not p_external_payment_received then
     raise exception using errcode = 'P0001', message = 'CAPACITY_FULL';
