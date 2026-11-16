@@ -1,4 +1,4 @@
-﻿# Contrato da API do MVP
+# Contrato da API do MVP
 
 Versão 1.0 — contrato comum entre frontend e backend. API JSON em Route Handlers Next.js (runtime Node.js), com regras executadas no servidor e persistência em PostgreSQL/Supabase. Valores monetários são inteiros em cêntimos. Datas de levantamento são instantes ISO 8601 com offset; regras de calendário usam `Europe/Lisbon`.
 
@@ -165,4 +165,3 @@ A pré-verificação de `POST /api/orders` é apenas instantânea e nunca reserv
 7. Cliente acompanha com código; Produção avança cada item até `ready`; Gestora regista restante, saldo zera e marca entregue.
 
 A pré-verificação de capacidade no POST cumpre a recusa do passo 6 quando a data já está cheia sem dar prioridade ou reserva aos pedidos pendentes. A confirmação continua a repetir a contagem atomicamente, pois a capacidade pode mudar entre a criação e o pagamento.
-
