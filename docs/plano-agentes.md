@@ -19,7 +19,7 @@ Este plano define responsabilidades; ainda não é um conjunto de prompts de exe
 
 ## Decisões ainda necessárias para escrever prompts executáveis
 
-1. Como contar vários bolos personalizados dentro de uma encomenda para o limite de seis.
+1. **Resolvido:** contam-se bolos físicos, não encomendas nem kg; `numero_bolos` separado do peso total do item.
 2. Fluxo quando um sinal chega depois de a data esgotar.
 3. Transições autorizadas por perfil e comportamento de cancelamento/reembolso.
 4. Contrato REST e estrutura de pastas do projeto Next.js.

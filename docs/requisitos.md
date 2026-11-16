@@ -17,6 +17,7 @@
 ## Política de capacidade decidida pela equipa
 
 - Um pedido de bolo personalizado em `Pendente` fica registado numa lista de espera, **sem reservar vaga**.
+- A capacidade conta **bolos físicos**, não encomendas, clientes ou quilogramas. Dois bolos personalizados na mesma encomenda ocupam duas das seis vagas.
 - A vaga só é atribuída quando a Gestora regista o sinal pago e o pedido passa a `Confirmada`. Encomendas personalizadas confirmadas antes têm prioridade, independentemente da ordem em que os pedidos pendentes foram criados.
 - Nesse momento, o servidor deve voltar a verificar o limite de seis bolos personalizados na data de levantamento. Se já estiver cheio, não confirma o pedido; a interface explica que a data ficou indisponível e pede outra data. Como o pagamento ocorre fora da aplicação, a equipa deve verificar a disponibilidade antes de instruir o cliente a pagar. Se o dinheiro tiver sido recebido antes de a vaga desaparecer, o registo financeiro deve refletir esse facto e a gestora deve resolver a alteração de data ou o reembolso simulado; esta exceção ainda precisa de um fluxo explícito.
 - A verificação da capacidade e a confirmação devem ser uma única operação segura no servidor, para que dois pedidos simultâneos não ocupem a sexta vaga.
@@ -40,7 +41,7 @@ O catálogo contém 11 produtos e a agenda contém 8 encomendas. O seed deve pre
 ## Decisões por fechar antes do código
 
 - Como representar itens vendidos por kg, unidade, cento, dúzia e meia dúzia? Ver [modelo proposto](modelo-dados.md).
-- Quantos bolos personalizados representam 2 kg de um produto, ou vários bolos na mesma encomenda? A capacidade conta bolos, não kg; precisamos de um campo/contrato que torne isso explícito.
+- Para um item personalizado, guardar separadamente peso total em kg e número de bolos físicos. Um bolo de 2 kg ocupa uma vaga; dois bolos que somem 2 kg ocupam duas. A interface deve pedir ambos sem ambiguidade.
 - Como consultar por código sem expor dados de contacto ou permitir adivinhação fácil?
 - Que transições de estado cada perfil pode executar?
 - Como lidar com encomendas com vários produtos e prazos mínimos diferentes?
