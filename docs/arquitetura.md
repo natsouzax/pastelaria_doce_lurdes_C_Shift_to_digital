@@ -6,14 +6,14 @@ Este documento regista o desenho antes da implementação. Preencher cada decis�
 | --- | --- | --- |
 | Frontend | Por definir | |
 | Backend e API REST | Por definir | |
-| Base de dados (MySQL ou PostgreSQL) | Por definir | |
+| Base de dados (MySQL ou PostgreSQL) | PostgreSQL hospedado no Supabase, candidato | Supabase fornece PostgreSQL, que satisfaz o requisito relacional; verificar a ligação e segurança quando a stack estiver definida. |
 | Autenticação de Gestora e Produção | Por definir | |
 | Seguimento sem conta pelo Cliente | Por definir | |
-| Implantação ou Docker | Por definir | |
+| Implantação ou Docker | Vercel, candidata | Publicação online pode valer os 5 pontos de boas práticas; Docker é opcional. |
 
 ## Contratos a desenhar
 
-1. Entidades e relações: produtos, encomendas, itens, pagamentos simulados e utilizadores internos.
+1. Entidades e relações: produtos, encomendas, itens, pagamentos simulados e utilizadores internos. Ver [modelo proposto](modelo-dados.md).
 2. Ações por perfil e transições de estados.
 3. Validações no servidor: prazo, segunda-feira, capacidade, sinal e saldo.
 4. Fluxos de ecrãs: encomendar, gerir, produzir e acompanhar.

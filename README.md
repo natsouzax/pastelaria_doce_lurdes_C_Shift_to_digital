@@ -8,7 +8,7 @@ Planeamento da arquitetura e dos fluxos. A implementação começa após a defin
 
 ## Fontes e requisitos
 
-Ver [requisitos](docs/requisitos.md) e [decisões de arquitetura](docs/arquitetura.md). Os ficheiros originais do desafio ficam fora deste repositório até ser revista a sua publicação.
+Ver [requisitos](docs/requisitos.md), [modelo de dados proposto](docs/modelo-dados.md) e [decisões de arquitetura](docs/arquitetura.md). Os ficheiros originais do desafio ficam fora deste repositório até ser revista a sua publicação.
 
 ## Entrega esperada
 
