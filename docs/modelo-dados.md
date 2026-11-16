@@ -20,7 +20,7 @@ Este desenho cobre os cinco requisitos obrigatórios do dossier. A base de dados
 - Para encomenda com bolo personalizado, `sinal exigido = 30% do total, arredondado ao euro`; o cenário exige 56 € → 17 €.
 - `valor em falta = total − pagamentos registados`, considerando eventuais reembolsos.
 - Alergias declaradas pelo cliente ficam separadas dos alergénios do catálogo: umas são restrições individuais, os outros são ingredientes/alertas do produto. A produção deve ver ambos claramente.
-- O servidor valida prazo, segunda-feira, limite diário, transições de estado, saldo e permissões. A definição exata de **quando** um pedido ocupa uma das seis vagas ainda está pendente.
+- O servidor valida prazo, segunda-feira, limite diário, transições de estado, saldo e permissões. Um personalizado `Pendente` não ocupa vaga; a vaga só é atribuída na confirmação após registo do sinal, com verificação atómica da capacidade no servidor. Pedidos cancelados libertam vaga; os demais estados confirmados continuam a contar para a data.
 - A data/hora de levantamento deve ser tratada no fuso `Europe/Lisbon`; os oito pedidos históricos não têm data completa no ficheiro original, por isso o seed precisa de uma escolha documentada.
 
 ### Exemplo de encomenda com unidades diferentes
@@ -38,5 +38,5 @@ Total = 104 €. Como inclui bolo personalizado, a regra do sinal incide sobre o
 
 1. O código de seguimento sozinho permite consultar dados pessoais? Se sim, que dados aparecem e como evitar enumeração?
 2. O sinal é arredondado por encomenda (30% do total), como diz o dossier, ou por item? A proposta usa o total da encomenda.
-3. A capacidade de seis conta bolos ou encomendas? A proposta de implementação deve resolver e documentar essa diferença.
+3. A capacidade de seis conta bolos, não kg. Como representar explicitamente o número de bolos quando uma encomenda pode conter vários personalizados?
 4. Que perfil pode passar `Confirmada` a `Em produção` e `Pronta` a `Entregue`?

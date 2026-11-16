@@ -14,6 +14,15 @@
 4. Estados: Pendente → Confirmada → Em produção → Pronta → Entregue, ou Cancelada. Sinal e restante simulados; saldo calculado. Bolo personalizado só confirma depois do sinal de 30% do total, arredondado ao euro. Cancelamento com menos de 48 horas não devolve o sinal.
 5. Produção: encomendas confirmadas agrupadas por dia, com alergias e notas visíveis.
 
+## Política de capacidade decidida pela equipa
+
+- Um pedido de bolo personalizado em `Pendente` fica registado numa lista de espera, **sem reservar vaga**.
+- A vaga só é atribuída quando a Gestora regista o sinal pago e o pedido passa a `Confirmada`. Encomendas personalizadas confirmadas antes têm prioridade, independentemente da ordem em que os pedidos pendentes foram criados.
+- Nesse momento, o servidor deve voltar a verificar o limite de seis bolos personalizados na data de levantamento. Se já estiver cheio, não confirma o pedido nem regista o sinal como pago na aplicação; a interface explica que a data ficou indisponível e pede outra data. Como o pagamento ocorre fora da aplicação, a equipa deve verificar a disponibilidade antes de instruir o cliente a pagar.
+- A verificação da capacidade e a confirmação devem ser uma única operação segura no servidor, para que dois pedidos simultâneos não ocupem a sexta vaga.
+- Pedidos `Cancelada` não ocupam vaga. Pedidos confirmados em estados posteriores continuam a ocupar a capacidade da data correspondente.
+- Esta lista de espera é uma decisão da equipa para pedidos pendentes; o dossier não especifica uma fila nem prioridade por ordem de chegada.
+
 ## Demonstração exigida
 
 1. Cliente encomenda bolo personalizado de chocolate de 2 kg para sete dias depois, com “Parabéns Inês” e alergia a frutos secos; recebe código.
@@ -30,8 +39,8 @@ O catálogo contém 11 produtos e a agenda contém 8 encomendas. O seed deve pre
 
 ## Decisões por fechar antes do código
 
-- Como representar itens vendidos por kg, unidade, cento, dúzia e meia dúzia?
-- Quando reservar a capacidade diária: ao criar o pedido Pendente ou só ao confirmar?
+- Como representar itens vendidos por kg, unidade, cento, dúzia e meia dúzia? Ver [modelo proposto](modelo-dados.md).
+- Quantos bolos personalizados representam 2 kg de um produto, ou vários bolos na mesma encomenda? A capacidade conta bolos, não kg; precisamos de um campo/contrato que torne isso explícito.
 - Como consultar por código sem expor dados de contacto ou permitir adivinhação fácil?
 - Que transições de estado cada perfil pode executar?
 - Como lidar com encomendas com vários produtos e prazos mínimos diferentes?

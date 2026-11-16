@@ -35,7 +35,7 @@ Criar ou abrir no Orca um projeto ligado a este repositório GitHub e distribuir
 
 1. Definir stack: frontend, backend, MySQL ou PostgreSQL, e modo de execução local/deploy. Justificar pela experiência da equipa e pelo prazo.
 2. Definir modelo de dados e unidades: produtos, preços por kg/unidade/cento/dúzia/meia dúzia, encomendas com múltiplos itens, clientes, pagamentos simulados, utilizadores internos.
-3. Definir regras de estado e capacidade: quem pode mudar cada estado, quando uma vaga de bolo personalizado fica reservada, e como impedir ultrapassar seis vagas em pedidos simultâneos.
+3. Definir regras de estado e capacidade: **decidido** que Pendente não reserva vaga; a vaga é atribuída ao confirmar após o sinal. Falta definir quantos bolos há em cada item e implementar a confirmação com verificação atómica para impedir ultrapassar seis vagas em pedidos simultâneos.
 4. Definir autenticação e seguimento: contas de Gestora/Produção, permissões da API, código de seguimento para Cliente sem conta.
 5. Definir contrato da API e fluxos de ecrãs, incluindo erros de prazo/segunda/capacidade, sinal e alergias.
 6. Definir datas documentadas para os oito pedidos antigos do seed e preparar dados adicionais para demonstrar o dia com seis bolos.
