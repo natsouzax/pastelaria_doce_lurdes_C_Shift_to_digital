@@ -14,6 +14,8 @@
 4. Estados: Pendente → Confirmada → Em produção → Pronta → Entregue, ou Cancelada. Sinal e restante simulados; saldo calculado. Bolo personalizado só confirma depois do sinal de 30% do total, arredondado ao euro. Cancelamento com menos de 48 horas não devolve o sinal.
 5. Produção: encomendas confirmadas agrupadas por dia, com alergias e notas visíveis.
 
+Cada item tem estado de produção independente. Um item pronto continua pronto mesmo que outro ainda não esteja; a encomenda só passa a `Pronta` quando todos os itens estiverem prontos.
+
 ## Política de capacidade decidida pela equipa
 
 - Um pedido de bolo personalizado em `Pendente` fica registado numa lista de espera, **sem reservar vaga**.
