@@ -6,14 +6,14 @@ Esta é a base comum para agentes paralelos. Fontes de verdade: dossier do Clien
 
 - Next.js App Router, TypeScript, Tailwind; SWR apenas para atualização de dados no cliente onde útil.
 - Route Handlers do Next.js em Node.js expõem API REST. Validação, cálculos, estados, capacidade e permissões são do servidor.
-- Supabase: PostgreSQL relacional e, se adotado, Auth para Gestora e Produção. Cliente não cria conta.
+- Supabase: PostgreSQL relacional e Auth para Gestora e Produção. Cliente não cria conta.
 - Vercel é alvo de publicação. Docker é opcional. Nenhuma integração com MB WAY, WhatsApp, Instagram, email ou SMS.
 
 ## Dados e regras partilhadas
 
 - `orders` agrupa `order_items`; cada bolo personalizado é um item/ID distinto com peso próprio em kg, mensagem e alergias. Outros produtos podem ter quantidade na unidade do catálogo.
 - `products` têm preço por unidade e antecedência. Cada item guarda preço e unidade aplicados no pedido.
-- Um bolo personalizado consome **uma** das seis vagas da data. `Pendente` não reserva vaga; apenas encomendas confirmadas e estados posteriores, exceto `Cancelada`, contam. Verificação e confirmação precisam de transação segura contra concorrência.
+- Um bolo personalizado consome **uma** das seis vagas da data. `Pendente` não reserva vaga; apenas encomendas confirmadas e estados posteriores, exceto `Cancelada`, contam. `POST /api/orders` faz uma pré-verificação instantânea: se a ocupação confirmada mais os bolos personalizados pedidos exceder seis, rejeita sem criar encomenda/código; caso contrário cria `Pendente` sem garantir ou reservar vaga. Vários pedidos pendentes podem concorrer pelas vagas observadas livres. Ao registar o sinal, a confirmação volta a verificar e reservar capacidade numa transação segura contra concorrência.
 - Item de produção: `a_fazer → em_producao → pronto`. A encomenda fica `Em produção` quando pelo menos um item começar e só fica `Pronta` quando **todos** os itens estiverem prontos. Produção não marca `Entregue`.
 - Para personalizado, sinal de 30% do **total da encomenda**, arredondado ao euro; confirmação apenas após sinal registado e vaga disponível. Exemplo: 56 € → 17 € de sinal e 39 € em falta.
 - Valores monetários em cêntimos inteiros; datas de levantamento no fuso Europe/Lisbon; código de seguimento não sequencial.
@@ -26,7 +26,7 @@ As rotas abaixo são contrato entre agentes; detalhes de campos devem ser public
 | Rota | Finalidade | Acesso |
 | --- | --- | --- |
 | `GET /api/products` | Catálogo | Público |
-| `POST /api/orders` | Criar pedido Pendente, validar prazo, segunda-feira e dados | Público |
+| `POST /api/orders` | Pré-verificar capacidade atual sem reservar; criar pedido Pendente se existir capacidade observada; validar prazo, segunda-feira e dados | Público |
 | `GET /api/orders/track/[code]` | Estado e resumo mínimo do pedido | Público com código |
 | `GET /api/staff/orders` | Lista por data/estado para gestão/produção | Gestora ou Produção, com visão por perfil |
 | `POST /api/staff/orders/[id]/payments` | Registar sinal ou restante simulado; tentar confirmar quando aplicável | Gestora |
@@ -35,7 +35,7 @@ As rotas abaixo são contrato entre agentes; detalhes de campos devem ser public
 
 ## Casos que o contrato detalhado deve fechar
 
-- Se o sinal tiver sido recebido fora do sistema e a vaga desaparecer, guardar o facto do pagamento sem confirmar a encomenda; expor claramente necessidade de nova data ou reembolso simulado. Evitar sugerir pagamento antes de verificar disponibilidade.
+- Se o sinal tiver sido recebido fora do sistema e a vaga desaparecer entre a pré-verificação e a confirmação, guardar o facto do pagamento sem confirmar a encomenda (`CAPACITY_LOST_AFTER_PAYMENT`); expor claramente necessidade de nova data ou reembolso simulado. A pré-verificação não garante vaga; a Gestora deve conferir a agenda antes de instruir pagamento.
 - Cancelamento em menos de 48 h não devolve sinal. Definir comportamento de cancelamento permitido e devolução simulada quando aplicável.
 - Cliente sem conta: o código é segredo de consulta; limitar dados apresentados e evitar código previsível.
 - Seed preserva 11 produtos e 8 pedidos originais. Datas absolutas inferidas para a agenda devem ser documentadas. Dados adicionais da demo ficam identificados.

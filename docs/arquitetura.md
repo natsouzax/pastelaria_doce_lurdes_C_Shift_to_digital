@@ -1,44 +1,37 @@
-# Decisões de arquitetura
+﻿# Decisões de arquitetura
 
-Este documento regista o desenho antes da implementação. Preencher cada decisão com a razão e a alternativa considerada.
+Este documento regista as decisões atuais e separa o que já está especificado do que continua por resolver. O contrato da API é [docs/api.md](api.md); os fluxos de ecrã estão a ser alinhados na frente de fluxos e experiência.
 
-| Decisão | Escolha | Porquê / consequência |
+## Decisões fechadas
+
+| Área | Decisão | Registo e consequência |
 | --- | --- | --- |
-| Frontend | Next.js + TypeScript + Tailwind; SWR onde houver atualização no cliente | Stack conhecida pelo utilizador. SWR é ferramenta de busca/atualização de dados na interface, não substitui API nem regras de servidor. |
-| Backend e API REST | Route Handlers do Next.js em Node.js, proposta | Mantém um único projeto TypeScript e expõe rotas REST. Regras de negócio e permissões ficam no servidor. |
-| Base de dados (MySQL ou PostgreSQL) | PostgreSQL hospedado no Supabase | Supabase fornece PostgreSQL, que satisfaz o requisito relacional. |
-| Autenticação de Gestora e Produção | Supabase Auth, proposta | Login apenas para equipa interna; autorização verificada nas rotas do servidor. Confirmar detalhes antes de implementar. |
-| Seguimento sem conta pelo Cliente | Por definir | |
-| Implantação ou Docker | Vercel, proposta | Publicação online pode valer os 5 pontos de boas práticas; Docker é opcional. |
+| Frontend | Next.js App Router, TypeScript e Tailwind; SWR quando for útil atualizar dados no cliente | A interface consome a API; regras de negócio não dependem apenas de validação no browser. |
+| Backend | API REST nos Route Handlers Next.js, runtime Node.js | Validação, autorização, cálculos e transições ocorrem no servidor. |
+| Base de dados | PostgreSQL no Supabase | Modelo relacional com snapshots de preço/unidade e transação segura para a capacidade diária. |
+| Autenticação interna | Supabase Auth para Gestora e Produção | Perfil e estado ativo vêm do registo interno; cada rota valida a sessão e a função no servidor. Ver matriz em `api.md`. |
+| Cliente sem conta | Código de seguimento aleatório, segredo de consulta de alta entropia; armazenar hash e aplicar rate limit | O endpoint público devolve apenas resumo mínimo, sem nome, telefone ou notas internas. |
+| Capacidade de personalizados | Um item por bolo físico; máximo de seis por data; POST faz pré-verificação instantânea sem reserva; confirmar com sinal verifica e reserva atomicamente | A contagem é por item, não por encomenda nem por kg. Pedidos pendentes não ocupam vaga e não recebem promessa de disponibilidade. Canceladas libertam capacidade; as restantes confirmadas continuam a contar. |
+| Pagamento | Registo simulado pela Gestora, em cêntimos, sem gateway/transação real | Sinal é 30% do total da encomenda quando inclui personalizado, arredondado ao euro; saldo é derivado dos pagamentos e reembolsos. |
+| Produção e estados | Produção avança cada item; estados agregados da encomenda são derivados; apenas Gestora entrega | Uma encomenda fica `Pronta` quando todos os itens estão prontos. Transições e permissões estão em `api.md`. |
+| Deploy | Vercel | Alvo de publicação; Docker permanece opcional. |
+| Agenda | Instantes com offset, persistidos como `timestamptz`; calendário e capacidade por data local `Europe/Lisbon` | Segunda-feira é proibida. A demo usa relógio determinístico documentado em `api.md`, sem alterar produção. |
 
-## Contratos a desenhar
+## Trabalho paralelo
 
-1. Entidades e relações: produtos, encomendas, itens, pagamentos simulados e utilizadores internos. Ver [modelo proposto](modelo-dados.md).
-2. Ações por perfil e transições de estados.
-3. Validações no servidor: prazo, segunda-feira, capacidade, sinal e saldo.
-4. Fluxos de ecrãs: encomendar, gerir, produzir e acompanhar.
-5. Seed reproduzível com dados originais e dados adicionais de demonstração claramente identificados.
+Os worktrees/branches Orca estão ativos. As frentes podem avançar em paralelo usando o contrato comum e devem propor alterações de contrato em revisão antes de as implementar de forma incompatível.
 
-## Trabalho paralelo após o contrato
+- Frontend e fluxos: consumir as rotas de `api.md` e alinhar a demo nos documentos de fluxo da frente.
+- Backend: implementar schema, autenticação/autorização, API, pagamentos simulados e reserva atómica da capacidade.
+- Dados e integração: preparar migrações, seed, execução e documentação, sem atribuir datas históricas como se fossem originais.
+- Verificação: percorrer os sete passos, incluindo permissões, prazo, segunda-feira, capacidade, pagamentos, tracking e produção.
 
-- Frente A: interface e fluxos do Cliente, Gestora e Produção, usando o contrato da API.
-- Frente B: API, regras de negócio, autenticação e permissões.
-- Frente C: modelo relacional, migrações, seed, documentação de execução e cenário de demonstração.
+## Decisões e dependências ainda pendentes
 
-As frentes devem trabalhar em ramos separados e integrar cedo os fluxos obrigatórios. A divisão final depende das decisões acima.
+1. **Dossier de origem:** PDFs, critérios e XLSX foram consultados em `content_project` fora do checkout e não são versionados no Git. O catálogo (11 produtos) e a agenda (8 encomendas) coincidem com o resumo no dossier; conservar os valores originais e não copiar anexos para este PR.
+2. **Datas do seed histórico:** a agenda de origem só indica dias da semana. Atribuições de datas absolutas têm de ser identificadas como inferidas e documentadas antes de integrar o seed.
+3. **Sinal recebido sem vaga:** o contrato guarda o pagamento informado e bloqueia a confirmação quando a capacidade se esgota, mas não oferece alteração de data. O caso exige resolução operacional ou uma proposta de extensão de API para reagendamento/refund coordenado.
+4. **Disponibilidade antes do pagamento:** `POST /api/orders` verifica a ocupação instantânea, mas não reserva vaga nem oferece uma rota de calendário/disponibilidade. A confirmação atómica é a autoridade final; a equipa deve verificar a agenda antes de instruir pagamento.
+5. **Dados e acessos reais de demonstração:** definir contas fictícias de Gestora/Produção e os dados sintéticos do seed no processo de implementação; nunca colocar credenciais reais ou contactos da equipa no repositório.
 
-Ver também o [plano de agentes para Orca](plano-agentes.md).
-
-## Pendência Orca
-
-Criar ou abrir no Orca um projeto ligado a este repositório GitHub e distribuir as frentes de trabalho em worktrees/branches separadas. Nesta sessão, o comando `orca` não foi encontrado; retomar quando o acesso ao Orca estiver disponível. Não iniciar agentes antes de fechar as decisões abaixo e um contrato comum.
-
-## Ordem das decisões pendentes
-
-1. Definir stack: frontend, backend, MySQL ou PostgreSQL, e modo de execução local/deploy. Justificar pela experiência da equipa e pelo prazo.
-2. Definir modelo de dados e unidades: produtos, preços por kg/unidade/cento/dúzia/meia dúzia, encomendas com múltiplos itens, clientes, pagamentos simulados, utilizadores internos.
-3. Definir regras de estado e capacidade: **decidido** que Pendente não reserva vaga; a vaga é atribuída ao confirmar após o sinal. Cada bolo personalizado tem um item/ID com peso próprio; dois bolos ocupam duas vagas, mesmo na mesma encomenda. Falta implementar confirmação com verificação atómica para impedir ultrapassar seis vagas em pedidos simultâneos.
-4. Definir autenticação e seguimento: contas de Gestora/Produção, permissões da API, código de seguimento para Cliente sem conta.
-5. Definir contrato da API e fluxos de ecrãs, incluindo erros de prazo/segunda/capacidade, sinal e alergias.
-6. Definir datas documentadas para os oito pedidos antigos do seed e preparar dados adicionais para demonstrar o dia com seis bolos.
-7. Confirmar responsáveis, usernames GitHub e telefones fora do repositório público. Depois, repartir tarefas sem duplicar ficheiros entre agentes.
+O desenho técnico base (stack, modelo mínimo, estados, permissões e contrato REST) está documentado. Estes pontos pendentes não reabrem silenciosamente as decisões fechadas: uma alteração deve ficar registada e alinhada entre frontend e backend.

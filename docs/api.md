@@ -8,7 +8,7 @@ Versão 1.0 — contrato comum entre frontend e backend. API JSON em Route Handl
 - IDs internos são UUIDs. O código público de seguimento é aleatório, não sequencial, com pelo menos 128 bits de entropia; guardar apenas hash pesquisável na base de dados. Nunca usar UUID de encomenda como código público.
 - Autenticação de equipa por sessão Supabase Auth validada no servidor. O perfil e a autorização vêm de registo interno confiável, nunca de campos enviados pelo browser. Não expor `service_role` ao cliente.
 - Valores decimais de peso são kg, positivos, no máximo três casas decimais. Quantidade é positiva e unidade compatível com o produto. O preço do catálogo é por unidade de venda; num bolo personalizado a unidade de venda é `kg`, logo `subtotal_cents = weight_kg × unit_price_cents_per_kg`, arredondado ao cêntimo. Pesos e preços congelam no item ao criar o pedido.
-- `pickup_at` deve ser ISO 8601 com offset (`2026-11-23T10:00:00+00:00`). Apresentar e validar o calendário em `Europe/Lisbon`; persistir instante em `timestamptz` e manter também `pickup_date` local (`date`) para capacidade/agenda. Segunda-feira é rejeitada.
+- `pickup_at` deve ser ISO 8601 com offset. Apresentar e validar o calendário em `Europe/Lisbon`; persistir instante em `timestamptz` e manter também `pickup_date` local (`date`) para capacidade/agenda. Segunda-feira é rejeitada. Os exemplos da demo usam relógio determinístico `T0 = 2026-11-17T10:00:00+00:00` (terça-feira); o levantamento principal é `T0 + 7 dias = 2026-11-24T10:00:00+00:00` (terça-feira). A fixture não altera o relógio nem as regras de produção.
 - Prazo é calculado contra a hora do servidor: cada produto impõe a sua antecedência; bolo personalizado exige pelo menos 5 dias e restantes produtos pelo menos 48 horas. Em encomendas mistas, o levantamento tem de cumprir o maior prazo aplicável a cada item. Não arredondar a prazo pelo dia civil.
 - Só produtos ativos podem ser encomendados. Erros não alteram dados, exceto resposta `CAPACITY_LOST_AFTER_PAYMENT`, em que o pagamento externo informado é intencionalmente registado e requer resolução.
 - Listagens usam paginação `limit` (default 50, máximo 100) e `cursor` opaco. Sem suporte a filtros desconhecidos: responder `400`.
@@ -79,12 +79,12 @@ Query opcional: `category`, `is_custom_cake` (`true|false`), `limit`, `cursor`. 
 
 ### `POST /api/orders` — público
 
-Cria encomenda `pending`; não reserva capacidade. Recalcular preços, total, sinal e regras com os dados de catálogo no servidor. Corpo:
+Faz uma pré-verificação instantânea da capacidade e cria a encomenda `pending` apenas se houver capacidade observada para os bolos deste pedido. Conta os itens personalizados já confirmados (e estados seguintes, exceto cancelados) para a data local e soma o número de bolos físicos personalizados no pedido: se o total exceder seis, responder `409 CAPACITY_FULL` sem criar encomenda nem código. Se passar, criar `pending` sem reservar vaga; a resposta não garante disponibilidade futura. Recalcular preços, total, sinal e regras com os dados de catálogo no servidor. Corpo:
 
 ```json
 {
   "customer": {"name": "Inês", "phone": "+351000000000"},
-  "pickup_at": "2026-11-23T10:00:00+00:00",
+  "pickup_at": "2026-11-24T10:00:00+00:00",
   "notes": null,
   "items": [{
     "product_id": "uuid", "quantity": 1, "weight_kg": 2,
@@ -133,13 +133,13 @@ Formato consistente, sem stack trace: `{"error":{"code":"VALIDATION_ERROR","mess
 | 409 | `INVALID_STATE` | Transição/ação não permitida, saldo pendente, pagamento duplicado ou pedido terminal |
 | 409 | `PICKUP_TOO_SOON` | Antecedência mínima de algum produto não cumprida |
 | 409 | `MONDAY_PICKUP` | Levantamento em segunda-feira local |
-| 409 | `CAPACITY_FULL` | Confirmação atómica encontrou seis bolos ocupando a data; nenhum pagamento novo foi registado |
+| 409 | `CAPACITY_FULL` | No POST, ocupação confirmada mais bolos físicos pedidos excede seis e não cria encomenda/código; na confirmação sem pagamento externo associado, não confirma nem reserva vaga |
 | 409 | `CAPACITY_LOST_AFTER_PAYMENT` | Sinal externo já recebido e guardado, mas sem vaga; resolução requerida |
 | 409 | `PAYMENT_MISMATCH` | Tipo/valor não coincide com sinal, saldo ou política de reembolso |
 | 429 | `RATE_LIMITED` | Limite de tentativas de seguimento excedido |
 | 500 | `INTERNAL_ERROR` | Erro inesperado; incluir `request_id`, nunca detalhe interno |
 
-`CAPACITY_FULL` na confirmação ocorre apenas para operação sem pagamento externo associado. Confirmar deve ser idempotente ou, em conflito concorrente, retornar o estado final existente sem duplicar pagamento/reserva. Não repetir efeitos com retries da Vercel sem chave idempotente: pagamentos usam `Idempotency-Key` obrigatório (UUID) e unicidade por utilizador; criação pública pode usar chave opcional para prevenir duplicados de submissão.
+A pré-verificação de `POST /api/orders` é apenas instantânea e nunca reserva vaga; duas criações concorrentes podem passar quando ainda há capacidade observada. A confirmação após sinal repete a contagem e reserva atomicamente. Se a capacidade entretanto se esgotou após pagamento externo, responder `CAPACITY_LOST_AFTER_PAYMENT`. Uma confirmação sem pagamento externo associado que não consiga reservar devolve `CAPACITY_FULL`. A operação deve ser idempotente ou, em conflito concorrente, retornar o estado final existente sem duplicar pagamento/reserva. Não repetir efeitos com retries da Vercel sem chave idempotente: pagamentos usam `Idempotency-Key` obrigatório (UUID) e unicidade por utilizador; criação pública pode usar chave opcional para prevenir duplicados de submissão.
 
 ## Lacunas decididas para o MVP
 
@@ -152,16 +152,16 @@ Formato consistente, sem stack trace: `{"error":{"code":"VALIDATION_ERROR","mess
 7. Dados públicos de tracking são mínimos e sem dados de contacto. Código secreto de alta entropia, hash na BD e rate limit.
 8. Cancelamento a menos de 48 horas mantém o sinal sem reembolso. A pelo menos 48 horas, o MVP reembolsa apenas o sinal, se não houver pagamentos adicionais; demais casos exigem resolução manual.
 9. A capacidade conta cada item físico personalizado de encomendas em `confirmed`, `in_production`, `ready` e `delivered` na data; canceladas não contam. `delivered` continua a ocupar aquela data histórica.
-10. Os anexos originais não estão versionados aqui (README diz que ficam fora do repositório); não inferir datas absolutas para os oito pedidos históricos. Documentar qualquer data atribuída ao seed separadamente e preservar os valores de catálogo quando os ficheiros forem disponibilizados.
+10. Os PDFs originais, critérios e XLSX foram conferidos em `content_project` fora do checkout e não são versionados neste repositório. Catálogo de 11 produtos e agenda de 8 encomendas coincidem com os valores resumidos no dossier; a agenda original só informa dias da semana, por isso datas absolutas no seed têm de ser identificadas como inferidas.
 
 ## Checklist dos sete passos da demo
 
-1. `POST /orders` cria um item bolo de chocolate, 2 kg, mensagem e alergia; total 5 600 cêntimos e código apresentado uma vez.
-2. Mesmo POST para depois de amanhã falha `PICKUP_TOO_SOON` (desde que a data não viole primeiro a regra de segunda-feira; a fixture deve separar cenários).
-3. Pedido com levantamento na segunda local falha `MONDAY_PICKUP`.
+1. Com o relógio de demo fixado em terça-feira, 2026-11-17 às 10:00 Europe/Lisbon, `POST /orders` para terça-feira, 2026-11-24 às 10:00 cria um item de bolo de chocolate de 2 kg, com mensagem e alergia; total 5 600 cêntimos e código apresentado uma vez.
+2. Com o mesmo relógio, pedido personalizado para quinta-feira, 2026-11-19 às 10:00 (depois de amanhã) falha `PICKUP_TOO_SOON` por antecedência inferior a cinco dias.
+3. Pedido para segunda-feira, 2026-11-23, falha `MONDAY_PICKUP`.
 4. Gestora regista sinal de 1 700 cêntimos; transação confirma se ainda houver vaga, saldo passa a 3 900.
 5. Listagem de Produção para o dia mostra o bolo, alergia declarada e alergénios do produto em campos separados.
-6. Com seis itens personalizados já reservados, novo pedido permanece `pending`; a tentativa de confirmar após pagamento enfrenta a exceção documentada e não cria sétima vaga.
+6. Com seis itens personalizados já confirmados para a data, `POST /orders` responde `409 CAPACITY_FULL`, sem criar pedido nem código. Se o pedido foi criado quando ainda havia vaga, mas esta desaparece antes da confirmação, a transação após o sinal externo devolve `CAPACITY_LOST_AFTER_PAYMENT` e não cria uma sétima vaga.
 7. Cliente acompanha com código; Produção avança cada item até `ready`; Gestora regista restante, saldo zera e marca entregue.
 
-Nota de coerência do passo 6: criação pública não pode recusar um bolo com base em vagas livres, pois `pending` não reserva lugar e o passo 1 pressupõe receber o código. A recusa de capacidade é na confirmação; a interface pode consultar/mostrar a disponibilidade indicativa, mas a transação de confirmação é a autoridade final.
+A pré-verificação de capacidade no POST cumpre a recusa do passo 6 quando a data já está cheia sem dar prioridade ou reserva aos pedidos pendentes. A confirmação continua a repetir a contagem atomicamente, pois a capacidade pode mudar entre a criação e o pagamento.
