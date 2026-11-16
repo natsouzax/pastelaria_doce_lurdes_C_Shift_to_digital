@@ -7,7 +7,8 @@ Este plano define responsabilidades; ainda não é um conjunto de prompts de exe
 | Arquitetura (`architecture-design-flow`) | Fechar modelo de dados, regras, contrato REST, permissões e fluxos; registar decisões e ambiguidades do dossier | Documentação e revisão de contratos; não implementar todas as frentes |
 | Documentação e integração (`docs-integration`) | README executável, `.env.example`, instruções de seed/demo, verificação dos entregáveis, integração final | Não trabalhar diretamente na `main` enquanto outras frentes estão ativas; integrar por revisão |
 | Dados e backend (`backend-data`) | Migrações PostgreSQL, seed fiel aos dados, API REST, cálculos, transições, capacidade e validações atómicas | Ser dono do esquema e da API; publicar contrato para frontend |
-| Frontend e fluxos (`frontend-flows`) | Interfaces de Cliente, Gestora e Produção, responsividade, feedback, alergias e sete passos da demo | Consumir contrato da API; não duplicar regras como única validação |
+| Fluxos e experiência (`product-flows`) | Percursos dos três perfis, mapa de ecrãs, estados e roteiro dos sete passos | Documentar o fluxo; não implementar frontend ou alterar regras do servidor |
+| Frontend (`frontend-ui`) | Interfaces de Cliente, Gestora e Produção, responsividade, feedback e alergias | Implementar `docs/fluxos.md` e consumir `docs/api.md`; não duplicar regras como única validação |
 | Verificação do MVP (`mvp-verification`) | Executar o cenário de sete passos, testar perfis/permissões, seed, instalação e URL publicado | Preferir reportar falhas e corrigir com o dono da área, para evitar alterações concorrentes |
 
 ## Integração
