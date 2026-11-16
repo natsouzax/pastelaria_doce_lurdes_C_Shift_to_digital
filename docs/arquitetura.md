@@ -27,6 +27,8 @@ Este documento regista o desenho antes da implementação. Preencher cada decis�
 
 As frentes devem trabalhar em ramos separados e integrar cedo os fluxos obrigatórios. A divisão final depende das decisões acima.
 
+Ver também o [plano de agentes para Orca](plano-agentes.md).
+
 ## Pendência Orca
 
 Criar ou abrir no Orca um projeto ligado a este repositório GitHub e distribuir as frentes de trabalho em worktrees/branches separadas. Nesta sessão, o comando `orca` não foi encontrado; retomar quando o acesso ao Orca estiver disponível. Não iniciar agentes antes de fechar as decisões abaixo e um contrato comum.
