@@ -26,3 +26,17 @@ Este documento regista o desenho antes da implementação. Preencher cada decis�
 - Frente C: modelo relacional, migrações, seed, documentação de execução e cenário de demonstração.
 
 As frentes devem trabalhar em ramos separados e integrar cedo os fluxos obrigatórios. A divisão final depende das decisões acima.
+
+## Pendência Orca
+
+Criar ou abrir no Orca um projeto ligado a este repositório GitHub e distribuir as frentes de trabalho em worktrees/branches separadas. Nesta sessão, o comando `orca` não foi encontrado; retomar quando o acesso ao Orca estiver disponível. Não iniciar agentes antes de fechar as decisões abaixo e um contrato comum.
+
+## Ordem das decisões pendentes
+
+1. Definir stack: frontend, backend, MySQL ou PostgreSQL, e modo de execução local/deploy. Justificar pela experiência da equipa e pelo prazo.
+2. Definir modelo de dados e unidades: produtos, preços por kg/unidade/cento/dúzia/meia dúzia, encomendas com múltiplos itens, clientes, pagamentos simulados, utilizadores internos.
+3. Definir regras de estado e capacidade: quem pode mudar cada estado, quando uma vaga de bolo personalizado fica reservada, e como impedir ultrapassar seis vagas em pedidos simultâneos.
+4. Definir autenticação e seguimento: contas de Gestora/Produção, permissões da API, código de seguimento para Cliente sem conta.
+5. Definir contrato da API e fluxos de ecrãs, incluindo erros de prazo/segunda/capacidade, sinal e alergias.
+6. Definir datas documentadas para os oito pedidos antigos do seed e preparar dados adicionais para demonstrar o dia com seis bolos.
+7. Confirmar responsáveis, usernames GitHub e telefones fora do repositório público. Depois, repartir tarefas sem duplicar ficheiros entre agentes.
