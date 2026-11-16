@@ -1,4 +1,4 @@
-# Contrato da API do MVP
+﻿# Contrato da API do MVP
 
 Versão 1.0 — contrato comum entre frontend e backend. API JSON em Route Handlers Next.js (runtime Node.js), com regras executadas no servidor e persistência em PostgreSQL/Supabase. Valores monetários são inteiros em cêntimos. Datas de levantamento são instantes ISO 8601 com offset; regras de calendário usam `Europe/Lisbon`.
 
@@ -133,7 +133,7 @@ Formato consistente, sem stack trace: `{"error":{"code":"VALIDATION_ERROR","mess
 | 409 | `INVALID_STATE` | Transição/ação não permitida, saldo pendente, pagamento duplicado ou pedido terminal |
 | 409 | `PICKUP_TOO_SOON` | Antecedência mínima de algum produto não cumprida |
 | 409 | `MONDAY_PICKUP` | Levantamento em segunda-feira local |
-| 409 | `CAPACITY_FULL` | Pré-verificação do POST conclui que ocupação confirmada mais bolos físicos pedidos excede seis; não cria encomenda nem código |
+| 409 | `CAPACITY_FULL` | No POST, ocupação confirmada mais bolos físicos pedidos excede seis e não cria encomenda/código; na confirmação sem pagamento externo associado, não confirma nem reserva vaga |
 | 409 | `CAPACITY_LOST_AFTER_PAYMENT` | Sinal externo já recebido e guardado, mas sem vaga; resolução requerida |
 | 409 | `PAYMENT_MISMATCH` | Tipo/valor não coincide com sinal, saldo ou política de reembolso |
 | 429 | `RATE_LIMITED` | Limite de tentativas de seguimento excedido |
@@ -158,10 +158,11 @@ A pré-verificação de `POST /api/orders` é apenas instantânea e nunca reserv
 
 1. Com o relógio de demo fixado em terça-feira, 2026-11-17 às 10:00 Europe/Lisbon, `POST /orders` para terça-feira, 2026-11-24 às 10:00 cria um item de bolo de chocolate de 2 kg, com mensagem e alergia; total 5 600 cêntimos e código apresentado uma vez.
 2. Com o mesmo relógio, pedido personalizado para quinta-feira, 2026-11-19 às 10:00 (depois de amanhã) falha `PICKUP_TOO_SOON` por antecedência inferior a cinco dias.
-3. Pedido para segunda-feira, 2026-11-30, falha `MONDAY_PICKUP`.
+3. Pedido para segunda-feira, 2026-11-23, falha `MONDAY_PICKUP`.
 4. Gestora regista sinal de 1 700 cêntimos; transação confirma se ainda houver vaga, saldo passa a 3 900.
 5. Listagem de Produção para o dia mostra o bolo, alergia declarada e alergénios do produto em campos separados.
 6. Com seis itens personalizados já confirmados para a data, `POST /orders` responde `409 CAPACITY_FULL`, sem criar pedido nem código. Se o pedido foi criado quando ainda havia vaga, mas esta desaparece antes da confirmação, a transação após o sinal externo devolve `CAPACITY_LOST_AFTER_PAYMENT` e não cria uma sétima vaga.
 7. Cliente acompanha com código; Produção avança cada item até `ready`; Gestora regista restante, saldo zera e marca entregue.
 
 A pré-verificação de capacidade no POST cumpre a recusa do passo 6 quando a data já está cheia sem dar prioridade ou reserva aos pedidos pendentes. A confirmação continua a repetir a contagem atomicamente, pois a capacidade pode mudar entre a criação e o pagamento.
+
