@@ -13,7 +13,7 @@ Esta é a base comum para agentes paralelos. Fontes de verdade: dossier do Clien
 
 - `orders` agrupa `order_items`; cada bolo personalizado é um item/ID distinto com peso próprio em kg, mensagem e alergias. Outros produtos podem ter quantidade na unidade do catálogo.
 - `products` têm preço por unidade e antecedência. Cada item guarda preço e unidade aplicados no pedido.
-- Um bolo personalizado consome **uma** das seis vagas da data. `Pendente` não reserva vaga; apenas encomendas confirmadas e estados posteriores, exceto `Cancelada`, contam. Verificação e confirmação precisam de transação segura contra concorrência.
+- Um bolo personalizado consome **uma** das seis vagas da data. `Pendente` não reserva vaga; apenas encomendas confirmadas e estados posteriores, exceto `Cancelada`, contam. Pedido novo para data já cheia é rejeitado; quando ainda há vaga, vários pedidos podem ficar pendentes e concorrer por ela. Verificação e confirmação precisam de transação segura contra concorrência.
 - Item de produção: `a_fazer → em_producao → pronto`. A encomenda fica `Em produção` quando pelo menos um item começar e só fica `Pronta` quando **todos** os itens estiverem prontos. Produção não marca `Entregue`.
 - Para personalizado, sinal de 30% do **total da encomenda**, arredondado ao euro; confirmação apenas após sinal registado e vaga disponível. Exemplo: 56 € → 17 € de sinal e 39 € em falta.
 - Valores monetários em cêntimos inteiros; datas de levantamento no fuso Europe/Lisbon; código de seguimento não sequencial.
@@ -26,7 +26,7 @@ As rotas abaixo são contrato entre agentes; detalhes de campos devem ser public
 | Rota | Finalidade | Acesso |
 | --- | --- | --- |
 | `GET /api/products` | Catálogo | Público |
-| `POST /api/orders` | Criar pedido Pendente, validar prazo, segunda-feira e dados | Público |
+| `POST /api/orders` | Criar pedido Pendente; validar prazo, segunda-feira, dados e se a data já está cheia | Público |
 | `GET /api/orders/track/[code]` | Estado e resumo mínimo do pedido | Público com código |
 | `GET /api/staff/orders` | Lista por data/estado para gestão/produção | Gestora ou Produção, com visão por perfil |
 | `POST /api/staff/orders/[id]/payments` | Registar sinal ou restante simulado; tentar confirmar quando aplicável | Gestora |
