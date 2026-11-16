@@ -18,7 +18,7 @@
 
 - Um pedido de bolo personalizado em `Pendente` fica registado numa lista de espera, **sem reservar vaga**.
 - A vaga só é atribuída quando a Gestora regista o sinal pago e o pedido passa a `Confirmada`. Encomendas personalizadas confirmadas antes têm prioridade, independentemente da ordem em que os pedidos pendentes foram criados.
-- Nesse momento, o servidor deve voltar a verificar o limite de seis bolos personalizados na data de levantamento. Se já estiver cheio, não confirma o pedido nem regista o sinal como pago na aplicação; a interface explica que a data ficou indisponível e pede outra data. Como o pagamento ocorre fora da aplicação, a equipa deve verificar a disponibilidade antes de instruir o cliente a pagar.
+- Nesse momento, o servidor deve voltar a verificar o limite de seis bolos personalizados na data de levantamento. Se já estiver cheio, não confirma o pedido; a interface explica que a data ficou indisponível e pede outra data. Como o pagamento ocorre fora da aplicação, a equipa deve verificar a disponibilidade antes de instruir o cliente a pagar. Se o dinheiro tiver sido recebido antes de a vaga desaparecer, o registo financeiro deve refletir esse facto e a gestora deve resolver a alteração de data ou o reembolso simulado; esta exceção ainda precisa de um fluxo explícito.
 - A verificação da capacidade e a confirmação devem ser uma única operação segura no servidor, para que dois pedidos simultâneos não ocupem a sexta vaga.
 - Pedidos `Cancelada` não ocupam vaga. Pedidos confirmados em estados posteriores continuam a ocupar a capacidade da data correspondente.
 - Esta lista de espera é uma decisão da equipa para pedidos pendentes; o dossier não especifica uma fila nem prioridade por ordem de chegada.
