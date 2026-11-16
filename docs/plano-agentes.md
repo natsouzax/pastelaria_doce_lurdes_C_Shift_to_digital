@@ -1,32 +1,35 @@
-# Plano de agentes para Orca — preparar prompts após fechar o contrato
+# Plano de trabalho paralelo
 
-Este plano define responsabilidades; ainda não é um conjunto de prompts de execução. Cada agente deve receber o dossier, os critérios, o modelo de dados e o contrato comum quando estiverem fechados. Podem criar subagentes no Codex Orchestrate/OpenCode/Codex, desde que as subtarefas permaneçam na sua área e sejam integradas pelo agente responsável.
+Este plano acompanha os worktrees/branches Orca ativos. O contrato comum está em [api.md](api.md), as decisões de arquitetura em [arquitetura.md](arquitetura.md) e a frente de fluxos está a preparar a especificação de ecrãs e dos sete passos. As frentes devem integrar cedo e manter compatibilidade com estes documentos.
 
-| Agente / branch sugerida | Responsabilidade | Limite para evitar conflitos |
+## Frentes e limites
+
+| Frente | Responsabilidade | Limite de trabalho |
 | --- | --- | --- |
-| Arquitetura (`architecture-design-flow`) | Fechar modelo de dados, regras, contrato REST, permissões e fluxos; registar decisões e ambiguidades do dossier | Documentação e revisão de contratos; não implementar todas as frentes |
-| Documentação e entrega (`docs-integration`) | README executável, `.env.example`, instruções de seed/demo e verificação dos entregáveis | Entregar PR; não fazer merges na `main` |
-| Dados e backend (`backend-data`) | Migrações PostgreSQL, seed fiel aos dados, API REST, cálculos, transições, capacidade e validações atómicas | Ser dono do esquema e da API; publicar contrato para frontend |
-| Fluxos e experiência (`product-flows`) | Percursos dos três perfis, mapa de ecrãs, estados e roteiro dos sete passos | Documentar o fluxo; não implementar frontend ou alterar regras do servidor |
-| Frontend (`frontend-ui`) | Interfaces de Cliente, Gestora e Produção, responsividade, feedback e alergias | Implementar `docs/fluxos.md` e consumir `docs/api.md`; não duplicar regras como única validação |
-| Verificação do MVP (`mvp-verification`) | Executar o cenário de sete passos, testar perfis/permissões, seed, instalação e URL publicado | Preferir reportar falhas e corrigir com o dono da área, para evitar alterações concorrentes |
-| Coordenação da `main` (`main`) | Acompanhar, rever e integrar PRs; verificar o MVP; depois delegar e integrar correções/novas tarefas pedidas pela equipa | Único agente responsável pelos merges na `main`; criar tarefas com donos e dependências, pedir correções antes de integrar |
+| Arquitetura (`architecture-design-flow`) | Manter modelo, regras, contrato REST, permissões e decisões em sincronia; rever propostas incompatíveis | Documentação e revisão; não implementar a aplicação inteira nem alterar contrato silenciosamente. |
+| Documentação e entrega (`docs-integration`) | README executável, `.env.example`, instruções de seed/demo e verificação dos entregáveis | Entregar PR; não fazer merges na `main`. |
+| Dados e backend (`backend-data`) | Migrações PostgreSQL, seed fiel aos dados, API REST, cálculos, transições, capacidade e validações atómicas | Seguir campos, códigos HTTP, regras e perfis de `api.md`; sinalizar lacunas antes de divergir. |
+| Fluxos e experiência (`product-flows`) | Percursos dos três perfis, mapa de ecrãs, estados e roteiro dos sete passos | Documentar fluxos; não implementar frontend nem alterar regras do servidor sem coordenação. |
+| Frontend (`frontend-ui`) | Interfaces de Cliente, Gestora e Produção, responsividade, feedback e alergias | Consumir `docs/api.md` e os fluxos acordados; não duplicar regras como única validação. |
+| Verificação do MVP (`mvp-verification`) | Percorrer demo, perfis/permissões, seed, instalação e URL publicado | Relatar evidência e falhas aos donos das áreas; evitar alterações concorrentes. |
+| Coordenação da `main` (`main`) | Rever e integrar PRs, verificar o MVP e distribuir novas tarefas | Único agente responsável pelos merges na `main`; criar tarefas com donos e dependências e pedir correções antes de integrar. |
 
-## Integração
+## Regras de integração
 
-- `main` contém apenas versões verificadas. Cada frente parte de uma base comum e entrega uma branch para revisão.
-- O contrato da API e as regras de negócio devem estar fechados antes de dividir backend e frontend.
-- Cada prompt deve definir objetivo, ficheiros/área, critérios de aceitação, verificações e formato de devolução.
-- Subagentes não devem publicar segredos, criar integrações externas não pedidas ou alterar decisões de negócio sem registar a proposta para revisão.
+- Cada frente trabalha na sua branch/worktree e entrega PR para revisão; apenas a coordenação indicada integra na `main`.
+- `docs/api.md` é o contrato atual de rotas, payloads, respostas, permissões e estados. Mudanças de regra requerem acordo e atualização coordenada de requisitos, contrato, backend e fluxos.
+- A política acordada diz que `POST /api/orders` faz pré-verificação instantânea: recusa se a ocupação confirmada mais os bolos pedidos exceder seis; caso contrário cria pedido `Pendente` sem reservar nem garantir vaga. A capacidade é reservada atomicamente na confirmação após o sinal.
+- O relógio da fixture da demo é determinístico (`T0` terça-feira, 2026-11-17; levantamento principal sete dias depois, 2026-11-24). Não alterar relógio nem regra de produção para fazer a demo passar.
+- Os sete passos da demo têm prioridade sobre trabalho opcional. O passo 6 é atendido pela pré-verificação do POST quando a data já está cheia; a confirmação repete a verificação para cobrir concorrência.
+- Seed histórico deve preservar dados originais quando disponíveis. Datas completas inferidas não podem ser apresentadas como dados de origem.
+- Não publicar `.env`, chaves, credenciais, dados reais de contacto ou identificadores pessoais da equipa.
 
-## Decisões ainda necessárias para escrever prompts executáveis
+## Pendências conhecidas para coordenação
 
-1. **Resolvido:** contam-se bolos físicos, não encomendas nem kg; cada bolo personalizado tem um item/ID e peso próprios.
-2. Fluxo quando um sinal chega depois de a data esgotar.
-3. Transições autorizadas por perfil e comportamento de cancelamento/reembolso.
-4. Contrato REST e estrutura de pastas do projeto Next.js.
-5. Confirmar responsáveis humanos e contas GitHub, fora do repositório público.
+1. PDFs originais, critérios e XLSX já foram conferidos em `content_project` fora do checkout; catálogo de 11 produtos e agenda de 8 encomendas coincidem com o resumo do dossier. Manter essas fontes fora do Git.
+2. Confirmar e documentar datas atribuídas aos oito pedidos históricos, pois a agenda de origem indica apenas dias da semana.
+3. Resolver operacionalmente o caso em que o sinal foi recebido mas a capacidade desapareceu; qualquer fluxo de reagendamento/reembolso que mude o contrato exige proposta coordenada.
+4. Não há rota separada de calendário/disponibilidade e o POST não reserva vaga; antes de instruir pagamento, a Gestora verifica a agenda, e a confirmação continua a ser a reserva autoritativa.
+5. Criar contas e dados exclusivamente fictícios para demonstração, sem comitar segredos.
 
-## Orca
-
-Criar as branches/worktrees e lançar os agentes quando o Orca estiver acessível e o contrato estiver pronto. Nesta conversa, o comando `orca` continua indisponível; o utilizador pode abrir o projeto no Orca e aplicar os prompts finais quando forem produzidos.
+As transições autorizadas por perfil, o fluxo de tracking e as regras de sinal/cancelamento estão especificados em `api.md`; não são itens por fechar. Orca está em uso para coordenar as frentes, não é uma dependência indisponível.
