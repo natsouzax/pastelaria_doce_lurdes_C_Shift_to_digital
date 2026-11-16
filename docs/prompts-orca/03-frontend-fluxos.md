@@ -1,7 +1,0 @@
-# Prompt — agente de frontend e fluxos
-
-Trabalha numa branch própria `frontend-flows`, criada da base comum que contém `docs/contrato-mvp.md` e, quando publicado, `docs/api.md`. Lê dossier, critérios e `docs/requisitos.md`. Implementa a interface Next.js/TypeScript/Tailwind; usa SWR apenas onde fizer sentido para refrescar informação. Consome o contrato REST acordado, sem criar uma segunda lógica de negócio que substitua as validações do servidor.
-
-Constrói os fluxos dos sete passos da demo: catálogo e encomenda pública sem conta; um subformulário por bolo personalizado com peso, mensagem e alergias; código de seguimento; erros claros para prazo, segunda-feira e capacidade; painel da Gestora com Pendente, registo simulado do sinal e saldo; vista de Produção em tablet com texto legível, alergias destacadas e estado individual por item; consulta pública pelo código; entrega após pagamento restante. A encomenda só aparece Pronta quando todos os itens estiverem prontos. A Dona Lurdes precisa de ações rápidas no telemóvel.
-
-Testa visualmente telemóvel, tablet e computador e executa os fluxos disponíveis. Não uses dados pessoais reais da equipa em exemplos. Se o backend ainda não estiver pronto, usa um adaptador isolado com dados de demonstração e remove/desativa a simulação na integração final; não mudes o contrato unilateralmente. Podes criar subagentes para ecrãs independentes, sem sobreposição de ficheiros. Faz commit/push na branch e informa o que está real, simulado e por integrar.
