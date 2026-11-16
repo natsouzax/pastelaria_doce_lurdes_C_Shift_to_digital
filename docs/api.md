@@ -37,7 +37,7 @@ Cada bolo personalizado é exatamente um item, `quantity = 1`, com `weight_kg > 
 
 ### `simulated_payments`
 
-`id uuid`, `order_id uuid FK`, `kind` enum (`deposit`, `balance`, `refund`), `amount_cents integer > 0`, `recorded_at timestamptz`, `recorded_by uuid` (membro autenticado), `note text nullable`, `external_payment_received boolean default false`.
+`id uuid`, `order_id uuid FK`, `kind` enum (`deposit`, `balance`, `refund`), `amount_cents integer > 0`, `recorded_at timestamptz`, `recorded_by uuid` (membro autenticado nas operações da API; `NULL` apenas nos sinais históricos importados sem ator conhecido), `note text nullable`, `external_payment_received boolean default false`.
 
 São registos informativos, sem cobrança, gateway ou transferência real. `deposit`/`balance` aumentam o valor pago; `refund` reduz o valor líquido. Não permitir somatório líquido acima do total, nem sinal acima do sinal exigido, salvo uma operação explícita de restante depois da confirmação; para simplificar o MVP, excedentes são rejeitados.
 
@@ -103,6 +103,10 @@ Código no segmento URL; responder `200` com `status`, `pickup_at`, resumo de it
 ### `GET /api/staff/orders` — Gestora ou Produção
 
 Query: `pickup_date` obrigatório (`YYYY-MM-DD` em Europe/Lisbon), `status` opcional, `limit`, `cursor`. `manager` vê dados de contacto, origem, pagamentos e ações; `production` vê apenas encomendas confirmadas e estados seguintes, itens, alergénios de catálogo, alergias declaradas, mensagem e notas de produção. Produção não recebe telefone, pagamentos ou notas gerais do cliente. Resposta `200`: `{ "data": [ { "id", "status", "pickup_at", "customer_name" (apenas gestora), "items": [{"id","product_name","quantity","unit","weight_kg","cake_message","product_allergens","declared_allergies","production_notes","production_status"}], "total_cents", "amount_paid_cents", "balance_due_cents" (financeiro apenas Gestora) } ], "next_cursor": null }`.
+
+### `GET /api/staff/me` — Gestora ou Produção (extensão de integração)
+
+Devolve `{ "role": "manager" | "production" }` após validar sessão e `staff_profiles` no servidor. Responde `401 UNAUTHENTICATED` sem sessão e `403 FORBIDDEN` sem perfil ativo. A interface usa esta rota para determinar o papel mesmo quando a lista de pedidos está vazia. Não devolve dados pessoais. Esta rota foi acrescentada para integração do frontend e não altera as sete operações originais do contrato.
 
 ### `POST /api/staff/orders/{id}/payments` — Gestora
 

@@ -1,0 +1,14 @@
+{
+  "fixture": "demo-2026-11-24",
+  "reference_at": "2026-11-17T10:00:00+00:00",
+  "pickup_date": "2026-11-24",
+  "pickup_timezone": "Europe/Lisbon",
+  "product_ref": "bolo-chocolate",
+  "cakes": [
+    { "ref": "demo-cake-2", "customer_name": "Cliente demo 2", "weight_kg": 1, "message": null, "allergies": [] },
+    { "ref": "demo-cake-3", "customer_name": "Cliente demo 3", "weight_kg": 1, "message": null, "allergies": [] },
+    { "ref": "demo-cake-4", "customer_name": "Cliente demo 4", "weight_kg": 1, "message": null, "allergies": [] },
+    { "ref": "demo-cake-5", "customer_name": "Cliente demo 5", "weight_kg": 1, "message": null, "allergies": [] },
+    { "ref": "demo-cake-6", "customer_name": "Cliente demo 6", "weight_kg": 1, "message": null, "allergies": [] }
+  ]
+}

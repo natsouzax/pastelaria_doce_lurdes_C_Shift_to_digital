@@ -8,3 +8,5 @@ coverage/
 contexto-desafio.md
 contactos-equipa.md
 *.local
+.next/
+*.tsbuildinfo
