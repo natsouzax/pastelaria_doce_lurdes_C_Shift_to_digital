@@ -10,7 +10,7 @@ Este plano define responsabilidades; ainda não é um conjunto de prompts de exe
 | Fluxos e experiência (`product-flows`) | Percursos dos três perfis, mapa de ecrãs, estados e roteiro dos sete passos | Documentar o fluxo; não implementar frontend ou alterar regras do servidor |
 | Frontend (`frontend-ui`) | Interfaces de Cliente, Gestora e Produção, responsividade, feedback e alergias | Implementar `docs/fluxos.md` e consumir `docs/api.md`; não duplicar regras como única validação |
 | Verificação do MVP (`mvp-verification`) | Executar o cenário de sete passos, testar perfis/permissões, seed, instalação e URL publicado | Preferir reportar falhas e corrigir com o dono da área, para evitar alterações concorrentes |
-| Coordenação da `main` (`main`) | Acompanhar, rever e integrar PRs; executar verificação final do MVP | Único agente responsável pelos merges na `main`; pedir correções antes de integrar PRs que falhem |
+| Coordenação da `main` (`main`) | Acompanhar, rever e integrar PRs; verificar o MVP; depois delegar e integrar correções/novas tarefas pedidas pela equipa | Único agente responsável pelos merges na `main`; criar tarefas com donos e dependências, pedir correções antes de integrar |
 
 ## Integração
 
