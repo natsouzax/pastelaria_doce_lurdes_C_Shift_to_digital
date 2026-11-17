@@ -19,9 +19,13 @@ export const lineTotal = (line: Line, product: Product) => Math.round(lineAmount
 export type Category = 'Bolos' | 'Doces' | 'Salgados';
 export const categories: Category[] = ['Bolos', 'Doces', 'Salgados'];
 
-export function categoryOf(product: Product): Category {
+/** Categoria de montra. Devolve null para categorias desconhecidas (ex.: dados de teste), que não entram no catálogo. */
+export function categoryOf(product: Product): Category | null {
   const name = product.category.toLowerCase();
-  return name.includes('salgad') ? 'Salgados' : name.includes('doce') ? 'Doces' : 'Bolos';
+  if (name.includes('salgad')) return 'Salgados';
+  if (name.includes('doce')) return 'Doces';
+  if (name.includes('bolo')) return 'Bolos';
+  return null;
 }
 
 export type Problem = { code: string; message: string };

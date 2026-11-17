@@ -23,10 +23,9 @@ export function Hero({ onTrack }: { onTrack: () => void }) {
 
 const iconFor: Record<Category, IconName> = { Bolos: 'cake', Doces: 'sweet', Salgados: 'savoury' };
 
-export function ProductCard({ product, inCart, add }: { product: Product; inCart: number; add: (product: Product) => void }) {
-  const category = categoryOf(product);
+export function ProductCard({ product, category, inCart, add }: { product: Product; category: Category; inCart: number; add: (product: Product) => void }) {
   const photo = productPhoto(product);
-  return <article className="product reveal">
+  return <article className="product">
     <div className="product-top"><span className={`product-icon product-icon--${category.toLowerCase()}`}><Icon name={iconFor[category]} size={24} /></span>{product.is_custom_cake ? <span className="tag tag--gold">Personalizável</span> : <span className="tag">{category}</span>}</div>
     <div className="product-photo">{photo ? <Image src={photo} alt={`Imagem ilustrativa: ${product.name}`} width={640} height={480} sizes="(max-width: 620px) 100vw, (max-width: 1024px) 50vw, 33vw" /> : <span className="photo-fallback" aria-hidden="true"><Icon name={iconFor[category]} size={36} /></span>}</div>
     <h3>{product.name}</h3>
@@ -40,14 +39,17 @@ export function ProductCard({ product, inCart, add }: { product: Product; inCart
 }
 
 export function Catalog({ products, loading, error, retry, add, counts }: { products: Product[]; loading: boolean; error: string; retry: () => void; add: (product: Product) => void; counts: Record<string, number> }) {
-  const [category, setCategory] = useState<Category | 'Todos'>('Todos');
-  const ordered = [...products].sort((a, b) => categories.indexOf(categoryOf(a)) - categories.indexOf(categoryOf(b)));
-  const shown = ordered.filter(product => category === 'Todos' || categoryOf(product) === category);
-  const present = categories.filter(item => products.some(product => categoryOf(product) === item));
+  const [selected, setSelected] = useState<Category | 'Todos'>('Todos');
+  const listed = products.flatMap(product => { const category = categoryOf(product); return category ? [{ product, category }] : []; })
+    .sort((a, b) => categories.indexOf(a.category) - categories.indexOf(b.category));
+  const present = categories.filter(item => listed.some(entry => entry.category === item));
+  const category = selected === 'Todos' || present.includes(selected) ? selected : 'Todos';
+  const shown = listed.filter(entry => category === 'Todos' || entry.category === category);
+  const countIn = (item: Category | 'Todos') => item === 'Todos' ? listed.length : listed.filter(entry => entry.category === item).length;
   return <section className="section" id="catalogo" aria-labelledby="catalog-title">
     <div className="section-heading reveal"><div><p className="eyebrow">Catálogo</p><h2 id="catalog-title">O que vai para a sua mesa?</h2></div><p>Bolos, doces e salgados por encomenda. Os preços e os alergénios são os de cada produto.</p></div>
-    {!loading && !error && products.length > 0 && <div className="filters reveal" role="group" aria-label="Categorias">{(['Todos', ...present] as const).map(item => <button type="button" key={item} aria-pressed={category === item} onClick={() => setCategory(item)}>{item}<span>{item === 'Todos' ? products.length : products.filter(product => categoryOf(product) === item).length}</span></button>)}</div>}
-    {loading ? <Loading label="A carregar o catálogo…" /> : error ? <div className="state-block"><Notice tone="error"><strong>Não foi possível carregar o catálogo.</strong> {error}</Notice><button className="button secondary" type="button" onClick={retry}>Tentar novamente</button></div> : !shown.length ? <EmptyState title="Ainda não há produtos disponíveis">Volte mais tarde ou experimente outra categoria.</EmptyState> : <div className="product-grid">{shown.map(product => <ProductCard key={product.id} product={product} inCart={counts[product.id] ?? 0} add={add} />)}</div>}
+    {!loading && !error && listed.length > 0 && <div className="filters catalog-filters" role="group" aria-label="Categorias">{(['Todos', ...present] as const).map(item => <button type="button" key={item} aria-pressed={category === item} onClick={() => setSelected(item)}>{item}<span>{countIn(item)}</span></button>)}</div>}
+    {loading ? <Loading label="A carregar o catálogo…" /> : error ? <div className="state-block"><Notice tone="error"><strong>Não foi possível carregar o catálogo.</strong> {error}</Notice><button className="button secondary" type="button" onClick={retry}>Tentar novamente</button></div> : !shown.length ? <EmptyState title="Ainda não há produtos disponíveis">Volte mais tarde ou experimente outra categoria.</EmptyState> : <div className="product-grid">{shown.map(({ product, category: productCategory }) => <ProductCard key={product.id} product={product} category={productCategory} inCart={counts[product.id] ?? 0} add={add} />)}</div>}
   </section>;
 }
 
