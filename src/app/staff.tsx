@@ -80,6 +80,7 @@ export function Staff() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<StaffRole | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [staffDate, setStaffDate] = useState('');
@@ -93,6 +94,7 @@ export function Staff() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [notifyId, setNotifyId] = useState<string | null>(null);
   const paymentKeys = useRef<Record<string, string>>({});
+  const authCheck = useRef(0);
   const effectiveDate = staffDate || lisbonDateString(new Date());
   const selectedWeekStart = startOfWeek(effectiveDate);
   const orderQueryStart = selectedWeekStart;
@@ -111,22 +113,57 @@ export function Staff() {
     let active = true;
     try {
       const auth = createAuthClient();
-      void auth.auth.getUser().then(async ({ data }) => {
-        if (active && data.user) {
-          try { setRole((await api.me()).role); } catch (error) { if (active) setAuthError(describeError(error).message); }
+      const resolveRole = async (hasSession: boolean) => {
+        const check = ++authCheck.current;
+        if (!hasSession) {
+          if (active && check === authCheck.current) {
+            setRole(null);
+            setOrders([]);
+            setLoaded(false);
+            setAuthReady(true);
+          }
+          return;
+        }
+
+        try {
+          const me = await api.me();
+          if (active && check === authCheck.current) {
+            setRole(me.role);
+            setAuthError('');
+            setAuthReady(true);
+          }
+        } catch (error) {
+          if (active && check === authCheck.current) {
+            setRole(null);
+            setAuthError(describeError(error).message);
+            setAuthReady(true);
+          }
+        }
+      };
+
+      const { data: { subscription } } = auth.auth.onAuthStateChange((event, session) => {
+        if (!active) return;
+        // The persisted session is checked below; INITIAL_SESSION can arrive
+        // while cookie storage is still initializing, so it is not decisive.
+        if (event === 'SIGNED_OUT') void resolveRole(false);
+        else if (event === 'SIGNED_IN') void resolveRole(Boolean(session));
+      });
+
+      void auth.auth.getSession().then(({ data, error }) => {
+        if (error) throw error;
+        return resolveRole(Boolean(data.session));
+      }).catch(error => {
+        if (active) {
+          setRole(null);
+          setAuthError(describeError(error).message);
+          setAuthReady(true);
         }
       });
-      const { data: { subscription } } = auth.auth.onAuthStateChange((_event, session) => {
-        if (!active) return;
-        setOrders([]);
-        setLoaded(false);
-        setRole(null);
-        if (!session) return;
-        void api.me().then(me => { if (active) { setRole(me.role); setAuthError(''); } }).catch(error => { if (active) setAuthError(describeError(error).message); });
-      });
+
       return () => { active = false; subscription.unsubscribe(); };
     } catch (error) {
       setAuthError(describeError(error).message);
+      setAuthReady(true);
       return () => { active = false; };
     }
   }, []);
@@ -149,6 +186,7 @@ export function Staff() {
       if (error) throw error;
       setPassword('');
       setRole((await api.me()).role);
+      setAuthReady(true);
     } catch (error) {
       setAuthError(describeError(error).message);
     } finally { setAuthBusy(false); }
@@ -203,7 +241,8 @@ export function Staff() {
   };
 
   if (!role) return <section className="page staff-login" aria-labelledby="staff-title">
-    <div className="login-card">
+    {!authReady && <Loading label="A verificar sessão…" count={1} />}
+    {authReady && <div className="login-card">
       <p className="eyebrow">Equipa</p>
       <h1 id="staff-title">Entrar na área da equipa</h1>
       <p className="muted">Gestora e Produção entram com a sua conta. Entrar não altera nenhuma encomenda.</p>
@@ -213,7 +252,7 @@ export function Staff() {
         {authError && <Notice tone="error">{authError}</Notice>}
         <button className="button primary block" disabled={authBusy}>{authBusy ? 'A entrar…' : 'Entrar'}</button>
       </form>
-    </div>
+    </div>}
   </section>;
 
   const manager = role === 'manager';
