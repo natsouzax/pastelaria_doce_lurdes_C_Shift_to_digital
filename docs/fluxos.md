@@ -30,7 +30,7 @@ Há uma única entrada “Equipa” em `src/app/page.tsx` e não se criam rotas 
 | Papel | Interface | Operações autorizadas |
 | --- | --- | --- |
 | Gestora (`manager`) | Alterna internamente entre “Dashboard”, “Gestão” e “Produção” na mesma página | Indicadores semanais e ocupação diária, todas as ações de encomenda e pagamento, mais iniciar e concluir itens de produção |
-| Produção (`production`) | Vê apenas “Produção”; não recebe a navegação nem a vista de Gestão | Consulta de dados necessários à produção e transições de item e conclusão de encomendas prontas, sem dados financeiros; o contacto só chega nas encomendas Prontas, para avisar o cliente |
+| Produção (`production`) | Vê apenas “Produção”; não recebe a navegação nem a vista de Gestão | Consulta de dados necessários à produção e transições de item, sem dados financeiros; o contacto só chega nas encomendas Prontas, para avisar o cliente |
 
 O valor de papel do browser serve apenas para apresentar a secção. Cada API interna volta a validar a sessão através de Supabase Auth `getUser()` e consulta `staff_profiles.active` e `role` pelo `user_id` autenticado. Assim, uma chamada direta de Produção às rotas de pagamentos, confirmação ou cancelamento recebe `403 FORBIDDEN`; só pode concluir uma encomenda que já esteja pronta.
 
@@ -50,13 +50,13 @@ Na única tab “Equipa”, a Gestora encontra as secções internas “Dashboar
 5. No detalhe de um pedido personalizado, “Registar sinal” sugere o valor exigido já calculado. A Gestora regista o valor efetivamente recebido e confirma a ação; para o caso demonstrativo são 17 € num total de 56 €. O registo é simulado, não cobra dinheiro.
 6. O backend tenta registar o sinal, revalidar capacidade e confirmar na mesma transação. Em sucesso, o estado passa a `Confirmada`, a vaga é ocupada e o saldo fica 39 €. Se a vaga desaparecer antes de o pagamento externo ter sido recebido, a operação falha com `CAPACITY_FULL` sem registar pagamento. Se o pagamento já tiver sido efetivamente recebido, a interface informa que foi registado, mas a encomenda ficou sem vaga (`CAPACITY_LOST_AFTER_PAYMENT`); bloqueia nova tentativa de pagamento e orienta para reagendamento operacional ou reembolso simulado.
 7. Pedidos sem bolo personalizado são confirmados por ação explícita da Gestora; não exigem sinal pela regra v1. Registar sinal em encomenda sem personalizado é inválido.
-8. Para saldo, a Gestora abre “Registar restante”, vê o montante em falta e regista o valor recebido. Quando o cliente levantar o pedido, a Gestora pode marcá-lo como `Entregue`; qualquer saldo em falta continua visível para cobrança.
+8. Para saldo, a Gestora abre “Registar restante”, vê o montante em falta e regista o valor recebido. A Gestora só pode marcá-lo como `Entregue` depois de registar o pagamento integral.
 
 ### Cancelar e entregar
 
 - “Cancelar” pede uma razão curta e mostra a consequência financeira calculada pelo servidor antes de concluir. Com pelo menos 48 horas para o levantamento, a API simula o reembolso do sinal se não houver pagamentos adicionais; menos de 48 horas, não cria reembolso do sinal. A capacidade é libertada no cancelamento.
 - Se houver pagamento adicional que impeça o reembolso automático previsto no contrato, apresentar resolução manual requerida; não fazer cancelamento parcial silencioso.
-- “Marcar como levantado” aparece para pedido `Pronta`. A Gestora confirma a ação e o estado passa a `Entregue`; se houver saldo, este continua registado como por pagar.
+- “Marcar como levantado” aparece para pedido `Pronta`. A Gestora confirma a ação e o estado passa a `Entregue`; a ação só fica disponível depois de a Gestora registar o pagamento integral.
 - Encomenda entregue é terminal. O cancelamento pode ser iniciado antes da entrega, conforme as regras do contrato.
 
 ## Percurso da Produção no tablet
@@ -64,7 +64,7 @@ Na única tab “Equipa”, a Gestora encontra as secções internas “Dashboar
 1. A Produção autentica-se e escolhe uma data na secção “Produção” da tab “Equipa”. A lista inclui apenas encomendas Confirmadas e estados seguintes, agrupadas por dia e ordenadas pela hora de levantamento. A Gestora chega à mesma vista pelo seu separador interno “Produção”.
 2. Cada encomenda expande-se para cartões por item. Em cada bolo, alergias declaradas pelo Cliente e alergénios do produto surgem em blocos separados e com destaque visual. Mensagem do bolo e notas de produção também ficam visíveis junto do item a que pertencem.
 3. Em cada cartão, a Produção avança `A fazer` → `Em produção` → `Pronto`, uma ação por vez. A ação afeta apenas aquele item. Ao começar o primeiro item, o estado agregado torna-se `Em produção`.
-4. O estado agregado só passa a `Pronta` quando todos os itens da encomenda estiverem `Pronto`; itens já prontos mantêm o estado enquanto os outros avançam. A Produção não regista pagamentos nem cancela. Quando o cliente levantar a encomenda, pode marcá-la Entregue; qualquer saldo em falta continua pendente para a Gestora.
+4. O estado agregado só passa a `Pronta` quando todos os itens da encomenda estiverem `Pronto`; itens já prontos mantêm o estado enquanto os outros avançam. A Produção não regista pagamentos, não cancela nem marca encomendas como Entregues. Essa ação pertence à Gestora e exige pagamento integral registado.
 5. Quando o último item fica `Pronto`, abre-se um aviso “Encomenda pronta” com o botão “Abrir WhatsApp”: um toque abre a conversa com o cliente e a mensagem já escrita (nome, dia e hora de levantamento). A pessoa só tem de carregar em “Enviar”; o WhatsApp não permite enviar sem esse passo. Se fechar o aviso, o cartão da encomenda pronta mantém o botão “Avisar no WhatsApp” (também na vista da Gestora). Números fixos (começados por 2) mostram um alerta, porque costumam não ter WhatsApp.
 
 ## Mapa de ecrãs e navegação
@@ -108,7 +108,7 @@ Produção (tablet, sessão interna)
 | Código inválido/não encontrado | “Não encontrámos um pedido com este código. Confirme-o e tente novamente.” |
 | Ação sem permissão | “Não tem permissão para esta ação. Entre com o perfil adequado ou contacte a Gestora.” |
 | Pedido criado, confirmação pendente | “Pedido recebido. Ainda não está confirmado nem reserva uma vaga. Aguarde a Gestora verificar a data antes de pagar o sinal.” |
-| Pedido levantado com saldo por pagar | A encomenda fica `Entregue` e o saldo continua indicado como por pagar. |
+| Pedido levantado com saldo por pagar | A entrega só é aceite depois de o pagamento integral estar registado pela Gestora. |
 | API indisponível | “Não foi possível concluir agora. Os dados continuam preenchidos; tente novamente.” |
 
 As mensagens públicas de seguimento para código válido/inválido não devem expor contacto ou permitir inferir existência do pedido. O texto e a resposta HTTP devem preservar o comportamento indistinguível definido para `NOT_FOUND` e aplicar os limites de tentativas do contrato.

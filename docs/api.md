@@ -122,7 +122,7 @@ O papel nunca vem do browser. Cada operação interna chama `requireStaff`, que 
 | --- | --- | --- |
 | `GET /api/staff/me` e `GET /api/staff/orders` | Permitido; lista inclui contacto e dados financeiros | Permitido; só encomendas confirmadas/em produção/prontas, sem dados financeiros; nome e telefone apenas quando a encomenda está `ready` |
 | `PATCH /api/staff/order-items/{id}/status` | Permitido | Permitido |
-| `PATCH /api/staff/orders/{id}/status` | Permitido | Permitido apenas para `delivered` |
+| `PATCH /api/staff/orders/{id}/status` | Permitido | `403 FORBIDDEN` |
 | `POST /api/staff/orders/{id}/payments` | Permitido | `403 FORBIDDEN` |
 
 A rota de pagamentos continua exclusiva da Gestora. Ambas exigem `assertSameOrigin`, e a rota de pagamentos exige `Idempotency-Key`. Nunca enviar `service_role` ao cliente.
@@ -137,7 +137,7 @@ Devolve `{ "role": "manager" | "production" }` após validar sessão e `staff_pr
 
 ### `POST /api/staff/orders/{id}/payments` — Gestora
 
-Corpo: `{"kind":"deposit|balance|refund","amount_cents":1700,"external_payment_received":true,"note":null}`. Valor positivo. `deposit` apenas em `pending`; `balance` em `confirmed|in_production|ready`; `refund` em cancelamento permitido ou resolução manual explicitamente autorizada. Para deposit personalizado, aceitar apenas valor exato de `deposit_required_cents`; para encomenda sem personalizado rejeitar `deposit` e usar confirmação explícita. Para restante, valor não pode exceder saldo. Uma encomenda `ready` pode ser marcada como entregue quando levantada mesmo com saldo em falta; o saldo continua pendente.
+Corpo: `{"kind":"deposit|balance|refund","amount_cents":1700,"external_payment_received":true,"note":null}`. Valor positivo. `deposit` apenas em `pending`; `balance` em `confirmed|in_production|ready`; `refund` em cancelamento permitido ou resolução manual explicitamente autorizada. Para deposit personalizado, aceitar apenas valor exato de `deposit_required_cents`; para encomenda sem personalizado rejeitar `deposit` e usar confirmação explícita. Para restante, valor não pode exceder saldo. Uma encomenda `ready` só pode ser marcada como entregue quando os pagamentos registados pela Gestora cobrem o total do pedido.
 
 Ao receber sinal personalizado, guardar pagamento e tentar na mesma transação confirmar estado e capacidade. Bloquear a data local (advisory/row lock transacional por `pickup_date`), contar itens personalizados de encomendas não canceladas já confirmadas e somar a nova encomenda; confirmar só se total ≤ 6. O lock e a verificação têm de estar na mesma transação PostgreSQL. Resposta `200` quando registado: `{ "payment": {"id","kind","amount_cents","recorded_at"}, "order": {"id","status","total_cents","deposit_required_cents","amount_paid_cents","balance_due_cents","capacity_reserved"}, "resolution_required": false }`.
 
@@ -147,11 +147,11 @@ Se o pagamento externo já foi recebido, mas a vaga desapareceu, registar o sina
 
 Corpo `{"status":"in_progress"}` ou `{"status":"ready"}`. Item deve pertencer a encomenda `confirmed` ou `in_production`; estado apenas avança um passo. Operação atualiza item e estado agregado da encomenda na mesma transação. Gestora e Produção podem usar esta rota. Resposta `200`: `{ "item": {"id","production_status"}, "order": {"id","status"} }`. Esta rota de estado dos itens não permite marcar a encomenda como `delivered`, cancelar, editar pagamentos ou mudar dados do cliente.
 
-### `PATCH /api/staff/orders/{id}/status` — Gestora ou Produção
+### `PATCH /api/staff/orders/{id}/status` — Gestora
 
-Corpo `{"status":"confirmed"}` para pedido sem personalizado, `{"status":"cancelled","reason":"..."}` para cancelamento, ou `{"status":"delivered"}`. Gestora não pode forçar `in_production`/`ready`; estes são derivados dos itens. Confirmar personalizado por esta rota é sempre rejeitado: exige pagamento e capacidade na rota de pagamento. Cancelar aplica a política das 48 horas acima e liberta vagas transacionalmente. Entregar exige encomenda `ready` e pode ser registada mesmo com saldo em falta, que continua pendente para a Gestora. Resposta `200`: `{ "id","status","amount_paid_cents","balance_due_cents","capacity_reserved" }`; cancelamento que cria reembolso inclui também o registo de pagamento refund.
+Corpo `{"status":"confirmed"}` para pedido sem personalizado, `{"status":"cancelled","reason":"..."}` para cancelamento, ou `{"status":"delivered"}`. Gestora não pode forçar `in_production`/`ready`; estes são derivados dos itens. Confirmar personalizado por esta rota é sempre rejeitado: exige pagamento e capacidade na rota de pagamento. Cancelar aplica a política das 48 horas acima e liberta vagas transacionalmente. Entregar exige encomenda `ready` e pagamento integral registado pela Gestora. Resposta `200`: `{ "id","status","amount_paid_cents","balance_due_cents","capacity_reserved" }`; cancelamento que cria reembolso inclui também o registo de pagamento refund.
 
-Produção só pode usar `{"status":"delivered"}` e apenas quando a encomenda estiver `ready`; não pode confirmar, cancelar ou editar pagamentos. A entrega pode ser registada com saldo em falta, que continua pendente para a Gestora. A resposta de Produção contém apenas `{ "id","status" }`; a Gestora recebe também valores financeiros e capacidade.
+Esta rota é exclusiva da Gestora. A entrega exige encomenda `ready` e pagamento integral registado. A Produção recebe `403 FORBIDDEN` e não pode marcar pedidos como entregues.
 
 ## Erros comuns
 

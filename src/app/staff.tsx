@@ -8,23 +8,43 @@ import { isLandline, readyMessage, whatsappLink } from '@/lib/whatsapp';
 import { describeError, euro, pickupTimeLabel, units, weightLabel } from './presentation';
 import { EmptyState, Icon, Loading, Notice, Status, statusLabel } from './ui';
 
-type Pending = { title: string; body: string; confirm: string; danger?: boolean; reason?: boolean; success?: string; run: (reason?: string) => Promise<unknown> };
+type PaymentDetails = { amount_cents?: number; note: string | null };
+type Pending = { title: string; body: string; confirm: string; danger?: boolean; reason?: boolean; paymentNote?: boolean; confirmationPayment?: { totalCents: number }; success?: string; run: (reason?: string, payment?: PaymentDetails | null) => Promise<unknown> };
 
-function ConfirmDialog({ pending, busy, onCancel, onConfirm }: { pending: Pending | null; busy: boolean; onCancel: () => void; onConfirm: (reason?: string) => void }) {
+function ConfirmDialog({ pending, busy, onCancel, onConfirm }: { pending: Pending | null; busy: boolean; onCancel: () => void; onConfirm: (reason?: string, payment?: PaymentDetails | null) => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState('');
+  const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'full' | 'custom'>('unpaid');
+  const [customAmount, setCustomAmount] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (pending && !dialog.open) { setReason(''); dialog.showModal(); }
+    if (pending && !dialog.open) { setReason(''); setPaymentChoice('unpaid'); setCustomAmount(''); setPaymentNote(''); dialog.showModal(); }
     if (!pending && dialog.open) dialog.close();
   }, [pending]);
+  const customCents = Math.round(Number(customAmount) * 100);
+  const invalidCustomAmount = pending?.confirmationPayment && paymentChoice === 'custom'
+    && (!Number.isFinite(customCents) || customCents <= 0 || customCents > pending.confirmationPayment.totalCents);
   return <dialog ref={ref} className="dialog" onCancel={event => { event.preventDefault(); onCancel(); }} aria-labelledby="dialog-title">
-    {pending && <form onSubmit={event => { event.preventDefault(); if (pending.reason && !reason.trim()) return; onConfirm(reason.trim()); }}>
+    {pending && <form onSubmit={event => {
+      event.preventDefault();
+      if (pending.reason && !reason.trim() || invalidCustomAmount) return;
+      if (pending.confirmationPayment) {
+        const payment = paymentChoice === 'unpaid' ? null : { amount_cents: paymentChoice === 'full' ? pending.confirmationPayment.totalCents : customCents, note: paymentNote.trim() || null };
+        onConfirm(reason.trim(), payment);
+      } else if (pending.paymentNote) onConfirm(reason.trim(), { note: paymentNote.trim() || null });
+      else onConfirm(reason.trim());
+    }}>
       <h2 id="dialog-title">{pending.title}</h2>
       <p>{pending.body}</p>
       {pending.reason && <div className="field"><label htmlFor="dialog-reason">Motivo do cancelamento</label><textarea id="dialog-reason" rows={3} required value={reason} onChange={event => setReason(event.target.value)} autoFocus /></div>}
-      <div className="dialog-actions"><button type="button" className="button ghost" onClick={onCancel} disabled={busy}>Voltar</button><button className={`button ${pending.danger ? 'danger' : 'primary'}`} disabled={busy || (pending.reason && !reason.trim())}>{busy ? 'A guardar…' : pending.confirm}</button></div>
+      {pending.confirmationPayment && <>
+        <div className="field"><label htmlFor="dialog-payment-choice">Pagamento recebido</label><select id="dialog-payment-choice" value={paymentChoice} onChange={event => setPaymentChoice(event.target.value as typeof paymentChoice)}><option value="unpaid">Ainda não pago</option><option value="full">Total pago ({euro(pending.confirmationPayment.totalCents)})</option><option value="custom">Valor personalizado pago</option></select></div>
+        {paymentChoice === 'custom' && <div className="field"><label htmlFor="dialog-custom-amount">Valor recebido</label><input id="dialog-custom-amount" type="number" min="0.01" max={(pending.confirmationPayment.totalCents / 100).toFixed(2)} step="0.01" required value={customAmount} onChange={event => setCustomAmount(event.target.value)} />{invalidCustomAmount && <small>Indique um valor maior que zero e até {euro(pending.confirmationPayment.totalCents)}.</small>}</div>}
+      </>}
+      {(pending.paymentNote || pending.confirmationPayment && paymentChoice !== 'unpaid') && <div className="field"><label htmlFor="dialog-payment-note">Nota do pagamento <span className="optional">opcional</span></label><textarea id="dialog-payment-note" rows={2} maxLength={500} placeholder="Ex.: dinheiro, MB WAY, transferência…" value={paymentNote} onChange={event => setPaymentNote(event.target.value)} /></div>}
+      <div className="dialog-actions"><button type="button" className="button ghost" onClick={onCancel} disabled={busy}>Voltar</button><button className={`button ${pending.danger ? 'danger' : 'primary'}`} disabled={busy || Boolean(pending.reason && !reason.trim()) || Boolean(invalidCustomAmount)}>{busy ? 'A guardar…' : pending.confirm}</button></div>
     </form>}
   </dialog>;
 }
@@ -224,12 +244,12 @@ export function Staff() {
     });
   }
 
-  async function pay(order: StaffOrder, kind: 'deposit' | 'balance' | 'refund', amount: number) {
+  async function pay(order: StaffOrder, kind: 'deposit' | 'balance' | 'refund', amount: number, note: string | null) {
     const token = `${order.id}:${kind}`;
     const key = paymentKeys.current[token] ?? crypto.randomUUID();
     paymentKeys.current[token] = key;
     try {
-      await api.payment(order.id, kind, amount, kind !== 'refund', key);
+      await api.payment(order.id, kind, amount, kind !== 'refund', key, note);
       delete paymentKeys.current[token];
     } catch (error) {
       if (error instanceof ApiFailure && error.status < 500) delete paymentKeys.current[token];
@@ -240,7 +260,7 @@ export function Staff() {
   const ask = (next: Pending) => setPending(next);
   const askPayment = (order: StaffOrder, kind: 'deposit' | 'balance' | 'refund', amount: number) => {
     const what = kind === 'refund' ? 'reembolso' : kind === 'deposit' ? 'sinal' : 'valor restante';
-    ask({ title: `Registar ${what}`, body: `Confirma que o ${what} de ${euro(amount)} foi ${kind === 'refund' ? 'devolvido' : 'recebido fora da aplicação'}? Este registo altera o saldo da encomenda.`, confirm: `Registar ${euro(amount)}`, run: () => pay(order, kind, amount) });
+    ask({ title: `Registar ${what}`, body: `Confirma que o ${what} de ${euro(amount)} foi ${kind === 'refund' ? 'devolvido' : 'recebido fora da aplicação'}? Este registo altera o saldo da encomenda.`, confirm: `Registar ${euro(amount)}`, paymentNote: true, run: (_, payment) => pay(order, kind, amount, payment?.note ?? null) });
   };
 
   if (!role) return <section className="page staff-login" aria-labelledby="staff-title">
@@ -418,10 +438,7 @@ export function Staff() {
           </div>
           {productionView && (item.production_status === 'ready' ? <span className="item-done"><Icon name="check" size={18} />Pronto</span> : <button type="button" className="button primary item-action" disabled={staffBusy} onClick={() => void advanceItem(item)}>{item.production_status === 'to_do' ? 'Iniciar' : 'Marcar pronto'}</button>)}
         </div>)}</div>
-        {productionView && order.status === 'ready' && <div className="order-notify">
-          {whatsappFor(order) && <WhatsappButton order={order} />}
-          <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar entrega', body: 'Confirma que o cliente levantou esta encomenda? O pedido ficará Entregue. Qualquer valor por receber continua pendente para a Gestora.', confirm: 'Marcar como entregue', success: 'Encomenda marcada como entregue.', run: () => api.orderStatus(order.id, 'delivered') })}>Marcar como entregue</button>
-        </div>}
+        {productionView && order.status === 'ready' && whatsappFor(order) && <div className="order-notify"><WhatsappButton order={order} /></div>}
         {managementView && <footer className="order-foot">
           <dl className="money money--inline"><div><dt>Total</dt><dd>{euro(order.total_cents ?? 0)}</dd></div><div><dt>Pago</dt><dd>{euro(paid)}</dd></div><div><dt>Por pagar</dt><dd>{euro(balance)}</dd></div></dl>
           {order.payments?.length ? <div className="payment-list" aria-label="Registos de pagamento">{order.payments.map(payment => <p key={payment.id}><strong>{payment.kind === 'deposit' ? 'Sinal' : payment.kind === 'balance' ? 'Restante' : 'Reembolso'}</strong><span>{euro(payment.amount_cents)} · {new Date(payment.recorded_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}</span>{payment.note && <small>{payment.note}</small>}</p>)}</div> : <p className="muted payment-empty">Sem pagamentos registados.</p>}
@@ -429,9 +446,10 @@ export function Staff() {
             {order.status === 'ready' && <WhatsappButton order={order} />}
             {order.status === 'pending'&& !order.capacity_resolution_required && (hasCake
               ? <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'deposit', order.deposit_required_cents ?? 0)}>Registar sinal {euro(order.deposit_required_cents ?? 0)}</button>
-              : <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar pedido', body: `Confirma o pedido de ${order.customer_name ?? 'cliente'} para ${pickupTimeLabel(order.pickup_at)}?`, confirm: 'Confirmar', run: () => api.orderStatus(order.id, 'confirmed') })}>Confirmar pedido</button>)}
+              : <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar pedido', body: `Confirma o pedido de ${order.customer_name ?? 'cliente'} para ${pickupTimeLabel(order.pickup_at)}?`, confirm: 'Confirmar', confirmationPayment: { totalCents: order.total_cents ?? 0 }, run: (_, payment) => api.orderStatus(order.id, 'confirmed', undefined, payment && payment.amount_cents !== undefined ? { amount_cents: payment.amount_cents, note: payment.note } : null) })}>Confirmar pedido</button>)}
             {order.status === 'ready' && balance > 0 && <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'balance', balance)}>Registar restante {euro(balance)}</button>}
-            {order.status === 'ready' && <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar levantamento', body: balance > 0 ? `Confirma que o cliente já levantou o pedido? O pedido ficará Entregue e continuará a mostrar ${euro(balance)} por pagar.` : 'Confirma que o cliente já levantou o pedido? O pedido ficará Entregue.', confirm: 'Marcar como levantado', run: () => api.orderStatus(order.id, 'delivered') })}>Marcar como levantado</button>}
+            {order.status === 'ready' && balance > 0 && <p className="muted">Registe o restante para poder marcar como entregue.</p>}
+            {order.status === 'ready' && balance === 0 && <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar levantamento', body: 'Confirma que o cliente já levantou o pedido e que o pagamento integral está registado?', confirm: 'Marcar como levantado', run: () => api.orderStatus(order.id, 'delivered') })}>Marcar como levantado</button>}
             {order.capacity_resolution_required && paid > 0 && <button type="button" className="button secondary" disabled={staffBusy} onClick={() => askPayment(order, 'refund', paid)}>Registar reembolso</button>}
             {!['delivered', 'cancelled'].includes(order.status) && !order.capacity_resolution_required && <button type="button" className="button ghost danger-text" disabled={staffBusy} onClick={() => ask({ title: 'Cancelar pedido', body: paid > (order.deposit_required_cents ?? 0) ? 'Há pagamentos além do sinal, por isso é necessária resolução manual antes do cancelamento.' : paid > 0 ? 'Com menos de 48 horas até ao levantamento, o sinal não é devolvido. Com 48 horas ou mais, o servidor simula o reembolso do sinal.' : 'A capacidade é libertada. Se houver sinal pago, com menos de 48 horas fica retido; com 48 horas ou mais, o servidor simula o reembolso.', confirm: 'Cancelar pedido', danger: true, reason: true, run: reason => api.orderStatus(order.id, 'cancelled', reason) })}>Cancelar</button>}
           </div>
@@ -439,6 +457,6 @@ export function Staff() {
       </article>;
     })}</div>}
     <NotifyDialog order={orders.find(order => order.id === notifyId && order.status === 'ready') ?? null} onClose={() => setNotifyId(null)} />
-    <ConfirmDialog pending={pending} busy={staffBusy} onCancel={() => !staffBusy && setPending(null)} onConfirm={reason => pending && void staffAction(pending.run, reason, pending.success)} />
+    <ConfirmDialog pending={pending} busy={staffBusy} onCancel={() => !staffBusy && setPending(null)} onConfirm={(reason, payment) => pending && void staffAction(() => pending.run(reason, payment), reason, pending.success)} />
   </section>;
 }

@@ -43,7 +43,7 @@ export const api = {
   staffOrders:(date:string,endDate?:string)=>allPages<StaffOrder>(endDate
     ? `/api/staff/orders?pickup_date_from=${encodeURIComponent(date)}&pickup_date_to=${encodeURIComponent(endDate)}`
     : `/api/staff/orders?pickup_date=${encodeURIComponent(date)}`),
-  payment:(id:string,kind:'deposit'|'balance'|'refund',amount_cents:number,external_payment_received:boolean,key:string)=>request<{order:StaffOrder}>(`/api/staff/orders/${id}/payments`,{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({kind,amount_cents,external_payment_received,note:null})}),
+  payment:(id:string,kind:'deposit'|'balance'|'refund',amount_cents:number,external_payment_received:boolean,key:string,note:string|null=null)=>request<{order:StaffOrder}>(`/api/staff/orders/${id}/payments`,{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({kind,amount_cents,external_payment_received,note})}),
   itemStatus:(id:string,status:'in_progress'|'ready')=>request<{item:{id:string;production_status:ItemStatus};order:{id:string;status:OrderStatus}}>(`/api/staff/order-items/${id}/status`,{method:'PATCH',body:JSON.stringify({status})}),
-  orderStatus:(id:string,status:'confirmed'|'delivered'|'cancelled',reason?:string)=>request<{id:string;status:OrderStatus}>(`/api/staff/orders/${id}/status`,{method:'PATCH',body:JSON.stringify(status==='cancelled'?{status,reason}:{status})}),
+  orderStatus:(id:string,status:'confirmed'|'delivered'|'cancelled',reason?:string,payment?:{amount_cents:number;note:string|null}|null)=>request<{id:string;status:OrderStatus}>(`/api/staff/orders/${id}/status`,{method:'PATCH',body:JSON.stringify(status==='cancelled'?{status,reason}:status==='confirmed'?{status,payment:payment??null}:{status})}),
 };

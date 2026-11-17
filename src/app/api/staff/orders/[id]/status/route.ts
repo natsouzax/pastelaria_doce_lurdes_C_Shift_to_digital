@@ -9,21 +9,20 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const schema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('confirmed') }).strict(),
+  z.object({ status: z.literal('confirmed'), payment: z.object({ amount_cents: z.number().int().positive(), note: z.string().trim().max(500).nullable().optional() }).strict().nullable().optional() }).strict(),
   z.object({ status: z.literal('cancelled'), reason: z.string().trim().min(1).max(500) }).strict(),
   z.object({ status: z.literal('delivered') }).strict(),
 ]);
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const staff = await requireStaff(['manager', 'production']);
+    const staff = await requireStaff(['manager']);
     assertSameOrigin(request);
     const { id } = await context.params;
     if (!z.uuid().safeParse(id).success) throw new ApiError(400, 'VALIDATION_ERROR', 'ID inválido.');
     const parsed = schema.safeParse(await parseJson(request));
     if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'Transição inválida.');
     const body = parsed.data;
-    if (staff.role === 'production' && body.status !== 'delivered') throw new ApiError(403, 'FORBIDDEN', 'A Produção só pode marcar encomendas prontas como entregues.');
     const result = await db.begin(async tx => {
       const rows = await tx`select *, pickup_date::text as pickup_date_text from public.orders where id=${id}::uuid for update`;
       const order = rows[0];
@@ -36,6 +35,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (body.status === 'confirmed') {
         if (order.status !== 'pending' || order.capacity_resolution_required) throw new ApiError(409, 'INVALID_STATE', 'Pedido não pode ser confirmado neste estado.');
         if (customCakeCount > 0) throw new ApiError(409, 'INVALID_STATE', 'Bolos personalizados exigem sinal e reserva atómica de capacidade.');
+        if (body.payment && body.payment.amount_cents > Number(order.total_cents)) throw new ApiError(409, 'PAYMENT_MISMATCH', 'O pagamento inicial não pode exceder o total do pedido.');
         const pickupDate = String(order.pickup_date_text);
         await tx`select pg_advisory_xact_lock(hashtextextended(${pickupDate}, 0))`;
         const otherOrders = await tx`select count(*)::integer as count from public.orders
@@ -44,8 +44,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             and id <> ${id}::uuid`;
         if (Number(otherOrders[0].count) >= 6) throw new ApiError(409, 'CAPACITY_FULL', 'Esta data já atingiu o limite de seis encomendas.');
         await tx`update public.orders set status='confirmed',confirmed_at=now(),updated_at=now() where id=${id}::uuid`;
+        if (body.payment) await tx`insert into public.simulated_payments(order_id,kind,amount_cents,recorded_by,note,external_payment_received,idempotency_key)
+          values (${id}::uuid,'balance',${body.payment.amount_cents},${staff.userId}::uuid,${body.payment.note ?? null},true,gen_random_uuid())`;
       } else if (body.status === 'delivered') {
         if (order.status !== 'ready') throw new ApiError(409, 'INVALID_STATE', 'Só encomendas prontas podem ser entregues.');
+        if (paid < Number(order.total_cents)) throw new ApiError(409, 'INVALID_STATE', 'A Gestora tem de registar o pagamento integral antes da entrega.');
         await tx`update public.orders set status='delivered',updated_at=now() where id=${id}::uuid`;
       } else {
         if (!['pending','confirmed','in_production','ready'].includes(order.status) || order.capacity_resolution_required) throw new ApiError(409, 'INVALID_STATE', 'A encomenda não pode ser cancelada por esta ação. Resolva primeiro o sinal recebido sem vaga.');
@@ -57,7 +60,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         }
         await tx`update public.orders set status='cancelled',cancelled_at=now(),cancellation_reason=${body.reason},updated_at=now() where id=${id}::uuid`;
       }
-      return { status: body.status, paid: body.status === 'cancelled' && refund ? 0 : paid, refund,
+      return { status: body.status, paid: body.status === 'cancelled' && refund ? 0 : body.status === 'confirmed' && body.payment ? paid + body.payment.amount_cents : paid, refund,
         total: Number(order.total_cents), reserved: capacityReserved(body.status, customCakeCount) };
     });
     return NextResponse.json({ id, status: result.status,
