@@ -142,7 +142,7 @@ a { color: var(--blue-2); }
 
 /* ---------- Catálogo compacto ---------- */
 .catalog-filters { gap: 6px; margin-bottom: 20px; }
-.catalog-filters button { min-height: 34px; gap: 6px; padding: 4px 12px; font-size: 13.5px; }
+.catalog-filters button { min-height: 44px; gap: 6px; padding: 6px 12px; font-size: 13.5px; }
 .catalog-filters button span { font-size: 11px; padding: 0 6px; }
 #catalogo.section { padding: clamp(28px, 4vw, 48px) 0; }
 #catalogo .section-heading { margin-bottom: 20px; }
@@ -297,6 +297,17 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 .phone-order h2 { font-size: 20px; margin-top: 2px; }
 .phone-order ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .phone-order li { display: flex; justify-content: space-between; gap: 12px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 14.5px; }
+.phone-order-detail { max-width: 100%; }
+.phone-customer-details { display: grid; gap: 4px; margin-top: 24px; }
+.phone-customer-details h2 { margin-bottom: 4px; font-size: 20px; }
+.phone-customer-details p { margin: 0; }
+.phone-detail-item { align-items: flex-start; }
+.phone-detail-item > div { display: grid; gap: 4px; }
+.phone-detail-item h3 { margin: 0; }
+.phone-detail-item p { margin: 0; color: var(--muted); }
+.phone-payments { display: grid; gap: 12px; }
+.phone-payments h2 { margin: 0; font-size: 20px; }
+.phone-payments > p { margin: 0; }
 .tracking-result { display: grid; gap: 20px; margin-top: 8px; animation: rise .5s var(--ease) both; }
 .tracking-top { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
 .tracking-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 24px; }
@@ -450,7 +461,7 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 }
 
 @media (max-width: 720px) {
-  body { font-size: 15px; padding-bottom: 76px; }
+  body { font-size: 15px; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .staff-management-tools { grid-template-columns: 1fr; }
   .staff-week { overflow-x: auto; grid-template-columns: repeat(7, minmax(76px, 1fr)); padding-bottom: 4px; }
   .dashboard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -473,6 +484,10 @@ input[aria-invalid="true"] { border-color: var(--danger); }
   .hero-card { bottom: 24px; padding-right: 14px; }
   .hero-seal { width: 76px; height: 76px; top: 24px; } .hero-seal em { font-size: 15px; }
   .product-grid, .skeleton-grid, .how-steps { grid-template-columns: 1fr; }
+  .catalog-filters { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: none; padding: 0 2px 4px; }
+  .catalog-filters::-webkit-scrollbar { display: none; }
+  .product-grid .product { gap: 12px; padding: 16px; }
+  .product-grid .button.add { min-height: 48px; white-space: normal; }
   .product h3 { min-height: 0; }
   .steps li button b { display: none; }
   .steps li.current button b { display: inline; }

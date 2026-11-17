@@ -5,7 +5,12 @@ export type OrderItem = { id:string; product_name:string; quantity:number; unit:
 export type StaffPayment = { id:string; kind:'deposit'|'balance'|'refund'; amount_cents:number; recorded_at:string; note:string|null };
 export type StaffOrder = { id:string; status:OrderStatus; pickup_at:string; pickup_date:string; items:OrderItem[]; customer_name?:string; customer_phone?:string; notes?:string|null; total_cents?:number; deposit_required_cents?:number; amount_paid_cents?:number; balance_due_cents?:number; payments?:StaffPayment[]; capacity_resolution_required?:boolean };
 export type TrackedOrder = { status:OrderStatus; pickup_at:string; total_cents:number; amount_paid_cents:number; balance_due_cents:number; can_cancel:boolean; items:Pick<OrderItem,'product_name'|'quantity'|'unit'|'weight_kg'|'cake_message'|'production_status'>[] };
-export type PhoneOrder = { status:OrderStatus; pickup_at:string; items:Pick<OrderItem,'product_name'|'quantity'|'unit'|'weight_kg'|'production_status'>[] };
+export type PhoneOrder = {
+  customer_name:string; customer_phone:string; notes:string|null; status:OrderStatus; pickup_at:string;
+  total_cents:number; deposit_required_cents:number; amount_paid_cents:number; balance_due_cents:number;
+  items:Array<OrderItem & {unit_price_cents:number;subtotal_cents:number}>;
+  payments:StaffPayment[];
+};
 export type NewOrder = { customer:{name:string;phone:string}; pickup_at:string; notes:string|null; items:Array<{product_id:string;quantity:number;weight_kg?:number;cake_message?:string|null;declared_allergies?:string[];production_notes?:string|null}> };
 export type CreatedOrder = { order_id:string; tracking_code:string; status:OrderStatus; pickup_at:string; total_cents:number; deposit_required_cents:number; amount_paid_cents:number; balance_due_cents:number; order_slot_reserved:boolean; capacity_reserved:boolean; message:string };
 export type StaffRole = 'manager'|'production';

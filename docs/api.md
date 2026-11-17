@@ -108,11 +108,11 @@ Resposta `200` inclui também `can_cancel` (`true` só se o estado for `pending`
 
 Cancelamento pelo cliente. Exige o código secreto (nunca só o telefone) e `Origin` igual ao do servidor. Numa transação com a encomenda bloqueada (`for update`), só cancela se `can_cancel` for verdadeiro; define `status='cancelled'`, `cancelled_at` e `cancellation_reason='Cancelado pelo cliente'`, o que liberta a vaga de bolo personalizado. Sem reembolsos: se existir qualquer pagamento, responde `409 INVALID_STATE` e o cliente deve falar com a pastelaria. Código inexistente ou inválido: `404 NOT_FOUND`. Rate limit de 20 por IP e 5 por código em 15 minutos (`429 RATE_LIMITED`). Resposta `200`: `{ "status": "cancelled" }`.
 
-### `POST /api/orders/lookup` — público com telefone (extensão, acesso reduzido)
+### `POST /api/orders/lookup` — público com telefone
 
-Corpo `{ "phone": "+351 912 345 678" }` (POST para o telefone não ficar no URL; exige `Origin`). Compara os últimos 9 dígitos do telefone guardado, ignorando espaços, `+351` e pontuação; menos de 9 dígitos devolve `400 VALIDATION_ERROR`. Resposta `200`: `{ "data": [ { "status", "pickup_at", "items": [{ "product_name", "quantity", "unit", "weight_kg", "production_status" }] } ] }`, até 20 pedidos por `pickup_at` decrescente; telefone sem pedidos devolve `data: []`.
+Corpo `{ "phone": "+351 912 345 678" }` (POST para o telefone não ficar no URL; exige `Origin`). Compara os últimos 9 dígitos do telefone guardado, ignorando espaços, `+351` e pontuação; menos de 9 dígitos devolve `400 VALIDATION_ERROR`. O telefone funciona como confirmação para abrir todos os detalhes do pedido. A resposta inclui dados de contacto fornecidos no pedido, observações, estado, data, valores, pagamentos e os itens com mensagem, alergias, notas de produção e estado. Devolve até 20 pedidos por `pickup_at` decrescente; telefone sem pedidos devolve `data: []`.
 
-Como o telefone não é um segredo, esta rota é deliberadamente mais pobre do que o tracking por código: sem ID, nome, telefone, mensagens de bolos, alergias, notas, valores ou pagamentos, e não permite cancelar. Rate limit de 10 por IP e 5 por telefone em 15 minutos (`429 RATE_LIMITED`). Decisão de produto: aceita-se que quem souber o telefone veja estado, dia de levantamento e produtos; isto relaxa o princípio 7 apenas para estes campos.
+O acesso é concedido a quem conhece o telefone usado no pedido, conforme decisão de produto. Não devolve o ID interno nem permite cancelar o pedido. Rate limit de 10 por IP e 5 por telefone em 15 minutos (`429 RATE_LIMITED`).
 
 ### Autorização da área interna
 
