@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiFailure, type ItemStatus, type OrderStatus, type StaffOrder, type StaffRole } from '@/lib/api';
 import { dateLabel, lisbonDateString } from '@/lib/dates';
 import { createAuthClient } from '@/lib/supabase/client';
+import { isLandline, readyMessage, whatsappLink } from '@/lib/whatsapp';
 import { describeError, euro, pickupTimeLabel, units } from './presentation';
 import { EmptyState, Icon, Loading, Notice, Status, statusLabel } from './ui';
 
@@ -25,6 +26,37 @@ function ConfirmDialog({ pending, busy, onCancel, onConfirm }: { pending: Pendin
       {pending.reason && <div className="field"><label htmlFor="dialog-reason">Motivo do cancelamento</label><textarea id="dialog-reason" rows={3} required value={reason} onChange={event => setReason(event.target.value)} autoFocus /></div>}
       <div className="dialog-actions"><button type="button" className="button ghost" onClick={onCancel} disabled={busy}>Voltar</button><button className={`button ${pending.danger ? 'danger' : 'primary'}`} disabled={busy || (pending.reason && !reason.trim())}>{busy ? 'A guardar…' : pending.confirm}</button></div>
     </form>}
+  </dialog>;
+}
+
+const whatsappFor = (order: StaffOrder) => whatsappLink(order.customer_phone, readyMessage(order.customer_name, order.pickup_at));
+
+function WhatsappButton({ order, onClick }: { order: StaffOrder; onClick?: () => void }) {
+  const href = whatsappFor(order);
+  if (!href) return null;
+  return <a className="button secondary" href={href} target="_blank" rel="noopener noreferrer" onClick={onClick}><Icon name="chat" size={18} />Avisar no WhatsApp</a>;
+}
+
+/** Abre-se sozinho quando o último item fica pronto: um toque abre o WhatsApp com a mensagem escrita; só falta carregar em “Enviar”. */
+function NotifyDialog({ order, onClose }: { order: StaffOrder | null; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (order && !dialog.open) dialog.showModal();
+    if (!order && dialog.open) dialog.close();
+  }, [order]);
+  const name = order?.customer_name?.trim();
+  return <dialog ref={ref} className="dialog" onCancel={event => { event.preventDefault(); onClose(); }} aria-labelledby="notify-title">
+    {order && <div className="notify">
+      <h2 id="notify-title">Encomenda pronta</h2>
+      <p>Avise {name ? <strong>{name}</strong> : 'o cliente'} de que já pode levantar a encomenda.</p>
+      {whatsappFor(order)
+        ? <>{isLandline(order.customer_phone) && <Notice tone="info">Este número é fixo e pode não ter WhatsApp. Se não abrir, ligue para <a href={`tel:${order.customer_phone}`}>{order.customer_phone}</a>.</Notice>}
+          <p className="muted">A conversa abre com a mensagem escrita. Carregue em “Enviar” no WhatsApp.</p></>
+        : <Notice tone="error">Esta encomenda não tem um telefone válido para WhatsApp.{order.customer_phone && <> Ligue para <a href={`tel:${order.customer_phone}`}>{order.customer_phone}</a>.</>}</Notice>}
+      <div className="dialog-actions"><button type="button" className="button ghost" onClick={onClose}>Agora não</button>{whatsappFor(order) && <a className="button primary" href={whatsappFor(order)!} target="_blank" rel="noopener noreferrer" onClick={onClose}><Icon name="chat" size={18} />Abrir WhatsApp</a>}</div>
+    </div>}
   </dialog>;
 }
 
@@ -59,6 +91,7 @@ export function Staff() {
   const [managerSection, setManagerSection] = useState<'management' | 'production'>('management');
   const [search, setSearch] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
+  const [notifyId, setNotifyId] = useState<string | null>(null);
   const paymentKeys = useRef<Record<string, string>>({});
   const effectiveDate = staffDate || lisbonDateString(new Date());
   const selectedWeekStart = startOfWeek(effectiveDate);
@@ -143,6 +176,13 @@ export function Staff() {
     }
   }
 
+  async function advanceItem(item: StaffOrder['items'][number]) {
+    await staffAction(async () => {
+      const result = await api.itemStatus(item.id, item.production_status === 'to_do' ? 'in_progress' : 'ready');
+      if (result.order.status === 'ready') setNotifyId(result.order.id);
+    });
+  }
+
   async function pay(order: StaffOrder, kind: 'deposit' | 'balance' | 'refund', amount: number) {
     const token = `${order.id}:${kind}`;
     const key = paymentKeys.current[token] ?? crypto.randomUUID();
@@ -180,7 +220,8 @@ export function Staff() {
   const productionView = !manager || managerSection === 'production';
   const selectedDate = effectiveDate;
   const selectedWeek = selectedWeekStart;
-  const dayOrders = orders.filter(order => order.pickup_date === selectedDate);
+  const dayOf = (order: StaffOrder) => String(order.pickup_date).slice(0, 10);
+  const dayOrders = orders.filter(order => dayOf(order) === selectedDate);
   const sorted = [...dayOrders].sort((a, b) => a.pickup_at.localeCompare(b.pickup_at));
   const productionOrders = sorted.filter(order => ['confirmed', 'in_production', 'ready'].includes(order.status));
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-PT');
@@ -217,7 +258,7 @@ export function Staff() {
 
     <div className="staff-week" role="group" aria-label="Dias da semana, com contagem de encomendas">
       {Array.from({ length: 7 }, (_, index) => shiftDay(selectedWeek, index)).map(date => {
-        const dayCount = orders.filter(order => order.pickup_date === date && order.status !== 'cancelled').length;
+        const dayCount = orders.filter(order => dayOf(order) === date && order.status !== 'cancelled').length;
         return <button type="button" key={date} className="staff-week-day" aria-pressed={selectedDate === date} onClick={() => setStaffDate(date)}>
           <span>{weekDayLabel(date)}</span><strong>{dayCount}</strong><small>{dayCount === 1 ? 'pedido' : 'pedidos'}</small>
         </button>;
@@ -261,13 +302,15 @@ export function Staff() {
             {productionView && item.production_notes && <p className="note"><b>Notas</b>{item.production_notes}</p>}
             {managementView && <Status value={item.production_status} />}
           </div>
-          {productionView && (item.production_status === 'ready' ? <span className="item-done"><Icon name="check" size={18} />Pronto</span> : <button type="button" className="button primary item-action" disabled={staffBusy} onClick={() => void staffAction(() => api.itemStatus(item.id, item.production_status === 'to_do' ? 'in_progress' : 'ready'))}>{item.production_status === 'to_do' ? 'Iniciar' : 'Marcar pronto'}</button>)}
+          {productionView && (item.production_status === 'ready' ? <span className="item-done"><Icon name="check" size={18} />Pronto</span> : <button type="button" className="button primary item-action" disabled={staffBusy} onClick={() => void advanceItem(item)}>{item.production_status === 'to_do' ? 'Iniciar' : 'Marcar pronto'}</button>)}
         </div>)}</div>
+        {productionView && order.status === 'ready' && whatsappFor(order) && <div className="order-notify"><WhatsappButton order={order} /></div>}
         {managementView && <footer className="order-foot">
           <dl className="money money--inline"><div><dt>Total</dt><dd>{euro(order.total_cents ?? 0)}</dd></div><div><dt>Pago</dt><dd>{euro(paid)}</dd></div><div><dt>Por pagar</dt><dd>{euro(balance)}</dd></div></dl>
           {order.payments?.length ? <div className="payment-list" aria-label="Registos de pagamento">{order.payments.map(payment => <p key={payment.id}><strong>{payment.kind === 'deposit' ? 'Sinal' : payment.kind === 'balance' ? 'Restante' : 'Reembolso'}</strong><span>{euro(payment.amount_cents)} · {new Date(payment.recorded_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}</span>{payment.note && <small>{payment.note}</small>}</p>)}</div> : <p className="muted payment-empty">Sem pagamentos registados.</p>}
           <div className="order-actions">
-            {order.status === 'pending' && !order.capacity_resolution_required && (hasCake
+            {order.status === 'ready' && <WhatsappButton order={order} />}
+            {order.status === 'pending'&& !order.capacity_resolution_required && (hasCake
               ? <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'deposit', order.deposit_required_cents ?? 0)}>Registar sinal {euro(order.deposit_required_cents ?? 0)}</button>
               : <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar pedido', body: `Confirma o pedido de ${order.customer_name ?? 'cliente'} para ${pickupTimeLabel(order.pickup_at)}?`, confirm: 'Confirmar', run: () => api.orderStatus(order.id, 'confirmed') })}>Confirmar pedido</button>)}
             {order.status === 'ready' && balance > 0 && <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'balance', balance)}>Registar restante {euro(balance)}</button>}
@@ -278,6 +321,7 @@ export function Staff() {
         </footer>}
       </article>;
     })}</div>}
+    <NotifyDialog order={orders.find(order => order.id === notifyId && order.status === 'ready') ?? null} onClose={() => setNotifyId(null)} />
     <ConfirmDialog pending={pending} busy={staffBusy} onCancel={() => !staffBusy && setPending(null)} onConfirm={reason => pending && void staffAction(pending.run, reason)} />
   </section>;
 }

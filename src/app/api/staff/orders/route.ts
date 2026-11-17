@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     }
     const rows = await db`
       select o.id, o.status, o.pickup_at, o.customer_name, o.customer_phone, o.notes, o.source,
-        o.total_cents, o.deposit_required_cents, o.capacity_resolution_required, o.pickup_date,
+        o.total_cents, o.deposit_required_cents, o.capacity_resolution_required, o.pickup_date::text as pickup_date,
         (select count(*)::integer from public.order_items i where i.order_id=o.id and i.is_custom_cake) as custom_cake_count,
         (select coalesce(sum(case when p.kind = 'refund' then -p.amount_cents else p.amount_cents end),0)::integer from public.simulated_payments p where p.order_id=o.id) as amount_paid_cents,
         (select coalesce(jsonb_agg(jsonb_build_object('id',p.id,'kind',p.kind,'amount_cents',p.amount_cents,'recorded_at',p.recorded_at,'note',p.note) order by p.recorded_at),'[]'::jsonb) from public.simulated_payments p where p.order_id=o.id) as payments,
@@ -61,6 +61,8 @@ export async function GET(request: Request) {
     const page = rows.slice(0, limit).map(row => {
       const amountPaid = Number(row.amount_paid_cents);
       const base = { id: row.id, status: row.status, pickup_at: row.pickup_at, pickup_date: row.pickup_date, items: row.items,
+        // A Produção só recebe nome e telefone quando a encomenda está pronta, para poder avisar o cliente por WhatsApp.
+        ...(staff.role === 'production' && row.status === 'ready' ? { customer_name: row.customer_name, customer_phone: row.customer_phone } : {}),
         ...(staff.role === 'manager' ? { customer_name: row.customer_name, customer_phone: row.customer_phone, notes: row.notes,
           source: row.source, total_cents: Number(row.total_cents), amount_paid_cents: amountPaid,
           deposit_required_cents: Number(row.deposit_required_cents),
