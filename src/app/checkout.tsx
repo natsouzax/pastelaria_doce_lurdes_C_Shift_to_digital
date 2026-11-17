@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CreatedOrder, NewOrder, Product } from '@/lib/api';
 import { dateLabel, lisbonDateString, lisbonPickupTimestamp } from '@/lib/dates';
+import { normalizePortuguesePhone } from '@/lib/phone';
 import { euro, leadLabel, lineAmount, lineTotal, pickupProblems, units, type Line, type Problem } from './presentation';
 import { EmptyState, Icon, Notice, Status } from './ui';
 
@@ -76,7 +77,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
     }
     if (current === 2) {
       if (!name.trim()) found['contact-name'] = 'Indique o seu nome.';
-      if (phone.replace(/\D/g, '').length < 6) found['contact-phone'] = 'Indique um telefone com pelo menos 6 dígitos.';
+      if (!normalizePortuguesePhone(phone)) found['contact-phone'] = 'Indique um telefone português válido, com 9 dígitos e começado por 2 ou 9.';
     }
     return found;
   }
@@ -165,7 +166,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
             <p className="muted">Usamos o seu nome e telefone apenas para tratar desta encomenda.</p>
             <div className="field-grid">
               <div className="field"><label htmlFor="contact-name">Nome</label><input id="contact-name" autoComplete="name" maxLength={120} value={name} onChange={event => setName(event.target.value)} aria-invalid={Boolean(errors['contact-name'])} aria-describedby="contact-name-error" />{err('contact-name')}</div>
-              <div className="field"><label htmlFor="contact-phone">Telefone</label><input id="contact-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={40} value={phone} onChange={event => setPhone(event.target.value)} aria-invalid={Boolean(errors['contact-phone'])} aria-describedby="contact-phone-error" />{err('contact-phone')}</div>
+              <div className="field"><label htmlFor="contact-phone">Telefone <span aria-hidden="true">*</span></label><input id="contact-phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={40} required value={phone} onChange={event => setPhone(event.target.value)} aria-invalid={Boolean(errors['contact-phone'])} aria-describedby="contact-phone-error" placeholder="+351 912 345 678" />{err('contact-phone')}</div>
             </div>
           </div>}
 

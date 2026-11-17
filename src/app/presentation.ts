@@ -31,7 +31,7 @@ export function categoryOf(product: Product): Category | null {
 export type Problem = { code: string; message: string };
 
 const messages: Record<string, string> = {
-  CAPACITY_FULL: 'Essa data já atingiu a capacidade de seis bolos personalizados. Escolha outro dia de levantamento.',
+  CAPACITY_FULL: 'Esta data já atingiu o limite de seis encomendas ou de capacidade para bolos personalizados. Escolha outro dia de levantamento.',
   CAPACITY_LOST_AFTER_PAYMENT: 'O sinal foi registado, mas a vaga deixou de estar disponível. É necessário reagendar ou registar o reembolso.',
   PICKUP_TOO_SOON: 'O levantamento escolhido não respeita a antecedência necessária. Escolha uma data mais tarde.',
   MONDAY_PICKUP: 'Não há levantamentos à segunda-feira. Escolha outro dia.',

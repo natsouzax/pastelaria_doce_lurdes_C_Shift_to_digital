@@ -32,7 +32,7 @@ export function dbError(error: unknown): never {
     INVALID_STATE: [409, 'INVALID_STATE', 'A operação não é permitida neste estado.'],
     DUPLICATE_PAYMENT: [409, 'INVALID_STATE', 'Esta chave idempotente já foi utilizada.'],
     PAYMENT_MISMATCH: [409, 'PAYMENT_MISMATCH', 'O valor ou tipo de pagamento não corresponde ao pedido.'],
-    CAPACITY_FULL: [409, 'CAPACITY_FULL', 'A data já tem seis bolos personalizados confirmados.'],
+    CAPACITY_FULL: [409, 'CAPACITY_FULL', 'A data já atingiu o limite de seis encomendas ou de capacidade para bolos personalizados.'],
   };
   const match = Object.entries(mapping).find(([key]) => message.includes(key));
   if (match) throw new ApiError(...match[1]);

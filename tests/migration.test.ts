@@ -4,13 +4,15 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 
-test('initial migration applies; capacity, payment fallback and database grants behave as specified', async () => {
+test('migrations apply; daily and cake capacity, payment fallback and grants behave as specified', async () => {
   const pg = await PGlite.create();
   try {
     await pg.exec(`create role anon; create role authenticated; create role service_role bypassrls;
       create schema auth; create table auth.users(id uuid primary key);`);
     const migration = await readFile(new URL('../supabase/migrations/20261116210057_initial_schema.sql', import.meta.url), 'utf8');
     await pg.exec(migration);
+    const dailyCapacityMigration = await readFile(new URL('../supabase/migrations/20261117160633_enforce_six_daily_order_limit.sql', import.meta.url), 'utf8');
+    await pg.exec(dailyCapacityMigration);
     const acl = await pg.query(`select has_table_privilege('anon','public.orders','select') as anon_read,
       has_function_privilege('anon','public.confirm_order_after_deposit(uuid,uuid,uuid,integer,boolean,text)','execute') as anon_confirm,
       has_function_privilege('service_role','public.confirm_order_after_deposit(uuid,uuid,uuid,integer,boolean,text)','execute') as server_confirm`);
@@ -44,6 +46,7 @@ test('initial migration applies; capacity, payment fallback and database grants 
     const stillSix=await pg.query<{n:number}>(`select count(*)::integer as n from public.orders where pickup_date=$1::date and status not in ('pending','cancelled')`,[day]);
     assert.equal(stillSix.rows[0].n,6);
     await pg.query(`update public.orders set status='cancelled',cancelled_at=now() where id=$1`,[orders[0]]);
+    await pg.query(`update public.orders set status='cancelled',cancelled_at=now() where id=$1`,[orders[1]]);
     const ninth=orders[7];
     const ninthHash=createHash('sha256').update(ninth).digest('hex');
     await pg.query(`insert into public.orders(id,tracking_code_hash,customer_name,customer_phone,pickup_at,pickup_date,status,total_cents,deposit_required_cents)

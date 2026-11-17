@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { assertLeadTime, depositRequired, parsePickup } from '@/lib/domain';
+import { normalizePortuguesePhone } from '@/lib/phone';
 import { ApiError, jsonError, parseJson } from '@/lib/http';
 import { NextResponse } from 'next/server';
 
@@ -9,7 +10,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const requestSchema = z.object({
-  customer: z.object({ name: z.string().trim().min(1).max(120), phone: z.string().trim().min(3).max(40) }).strict(),
+  customer: z.object({ name: z.string().trim().min(1).max(120), phone: z.string().trim().min(1).max(40).refine(value => normalizePortuguesePhone(value) !== null, 'Indique um telefone português válido, com 9 dígitos e começado por 2 ou 9.') }).strict(),
   pickup_at: z.string(), notes: z.string().trim().max(1000).nullable().optional(),
   items: z.array(z.object({
     product_id: z.uuid(), quantity: z.number().positive().max(10000), weight_kg: z.number().positive().max(100).optional(),
@@ -23,11 +24,16 @@ export async function POST(request: Request) {
     const parsed = requestSchema.safeParse(await parseJson(request));
     if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'Pedido inválido.', Object.fromEntries(parsed.error.issues.map(i => [String(i.path.join('.')), i.message])));
     const input = parsed.data;
+    const customerPhone = normalizePortuguesePhone(input.customer.phone)!;
     const { pickupAt, pickupDate } = parsePickup(input.pickup_at);
     const productIds = input.items.map(i => i.product_id);
     const code = randomBytes(24).toString('base64url');
     const codeHash = createHash('sha256').update(code).digest('hex');
     const result = await db.begin(async tx => {
+      // Keep creation and confirmation on the same date lock.
+      await tx`select pg_advisory_xact_lock(hashtextextended(${pickupDate}, 0))`;
+      const orderCount = await tx`select count(*)::integer as count from public.orders where pickup_date=${pickupDate}::date and status <> 'cancelled'`;
+      if (Number(orderCount[0].count) >= 6) throw new ApiError(409, 'CAPACITY_FULL', 'Esta data já atingiu o limite de seis encomendas. Escolha outra data.');
       const products = await tx`select id, name, unit, unit_price_cents, allergens, min_lead_hours, is_custom_cake from public.products where active = true and id = any(${productIds}::uuid[])`;
       const byId = new Map(products.map(p => [String(p.id), p]));
       let totalCents = 0;
@@ -59,7 +65,7 @@ export async function POST(request: Request) {
       const deposit = depositRequired(totalCents, hasCustom);
       const orders = await tx`
         insert into public.orders (tracking_code_hash, customer_name, customer_phone, pickup_at, pickup_date, notes, source, total_cents, deposit_required_cents)
-        values (${codeHash}, ${input.customer.name}, ${input.customer.phone}, ${pickupAt.toISOString()}, ${pickupDate}::date, ${input.notes ?? null}, 'online', ${totalCents}, ${deposit})
+        values (${codeHash}, ${input.customer.name}, ${customerPhone}, ${pickupAt.toISOString()}, ${pickupDate}::date, ${input.notes ?? null}, 'online', ${totalCents}, ${deposit})
         returning id, status, pickup_at`;
       const order = orders[0];
       const responseItems = [];
@@ -77,7 +83,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ order_id: result.order.id, tracking_code: code, status: result.order.status,
       pickup_at: result.order.pickup_at, items: result.items, total_cents: result.totalCents,
-      deposit_required_cents: result.deposit, amount_paid_cents: 0, balance_due_cents: result.totalCents,
+      deposit_required_cents: result.deposit, amount_paid_cents: 0, balance_due_cents: result.totalCents, order_slot_reserved: true,
       capacity_reserved: false, message: result.deposit ? 'Contacte a Gestora para confirmar disponibilidade antes de registar o sinal.' : 'Pedido recebido; aguarde confirmação da Gestora.' },
     { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return jsonError(error); }

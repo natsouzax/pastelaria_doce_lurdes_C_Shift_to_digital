@@ -24,7 +24,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'Transição inválida.');
     const body = parsed.data;
     const result = await db.begin(async tx => {
-      const rows = await tx`select * from public.orders where id=${id}::uuid for update`;
+      const rows = await tx`select *, pickup_date::text as pickup_date_text from public.orders where id=${id}::uuid for update`;
       const order = rows[0];
       if (!order) throw new ApiError(404, 'NOT_FOUND', 'Encomenda não encontrada.');
       const paidRows = await tx`select coalesce(sum(case when kind='refund' then -amount_cents else amount_cents end),0)::integer as paid from public.simulated_payments where order_id=${id}::uuid`;
@@ -35,6 +35,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (body.status === 'confirmed') {
         if (order.status !== 'pending' || order.capacity_resolution_required) throw new ApiError(409, 'INVALID_STATE', 'Pedido não pode ser confirmado neste estado.');
         if (customCakeCount > 0) throw new ApiError(409, 'INVALID_STATE', 'Bolos personalizados exigem sinal e reserva atómica de capacidade.');
+        const pickupDate = String(order.pickup_date_text);
+        await tx`select pg_advisory_xact_lock(hashtextextended(${pickupDate}, 0))`;
+        const otherOrders = await tx`select count(*)::integer as count from public.orders
+          where pickup_date=${pickupDate}::date
+            and status in ('confirmed','in_production','ready','delivered')
+            and id <> ${id}::uuid`;
+        if (Number(otherOrders[0].count) >= 6) throw new ApiError(409, 'CAPACITY_FULL', 'Esta data já atingiu o limite de seis encomendas.');
         await tx`update public.orders set status='confirmed',confirmed_at=now(),updated_at=now() where id=${id}::uuid`;
       } else if (body.status === 'delivered') {
         if (order.status !== 'ready') throw new ApiError(409, 'INVALID_STATE', 'Só encomendas prontas podem ser entregues.');

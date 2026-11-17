@@ -7,7 +7,7 @@ export type StaffOrder = { id:string; status:OrderStatus; pickup_at:string; pick
 export type TrackedOrder = { status:OrderStatus; pickup_at:string; total_cents:number; amount_paid_cents:number; balance_due_cents:number; can_cancel:boolean; items:Pick<OrderItem,'product_name'|'quantity'|'unit'|'weight_kg'|'cake_message'|'production_status'>[] };
 export type PhoneOrder = { status:OrderStatus; pickup_at:string; items:Pick<OrderItem,'product_name'|'quantity'|'unit'|'weight_kg'|'production_status'>[] };
 export type NewOrder = { customer:{name:string;phone:string}; pickup_at:string; notes:string|null; items:Array<{product_id:string;quantity:number;weight_kg?:number;cake_message?:string|null;declared_allergies?:string[];production_notes?:string|null}> };
-export type CreatedOrder = { order_id:string; tracking_code:string; status:OrderStatus; pickup_at:string; total_cents:number; deposit_required_cents:number; amount_paid_cents:number; balance_due_cents:number; capacity_reserved:boolean; message:string };
+export type CreatedOrder = { order_id:string; tracking_code:string; status:OrderStatus; pickup_at:string; total_cents:number; deposit_required_cents:number; amount_paid_cents:number; balance_due_cents:number; order_slot_reserved:boolean; capacity_reserved:boolean; message:string };
 export type StaffRole = 'manager'|'production';
 export type StaffMe = { role:StaffRole };
 
