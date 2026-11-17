@@ -36,11 +36,11 @@ O valor de papel do browser serve apenas para apresentar a secção. Cada API in
 
 ## Percurso da Gestora no telemóvel
 
-Na única tab “Equipa”, a Gestora encontra as secções internas “Gestão” e “Produção”. A lista de encomendas é carregada uma vez por data e partilhada entre ambas; ações concluídas atualizam a mesma lista.
+Na única tab “Equipa”, a Gestora encontra as secções internas “Gestão” e “Produção”. Em Gestão, a agenda mostra os sete dias da semana e quantos pedidos ativos há para levantamento em cada dia; escolher um dia filtra os cartões e os totais desse dia. A Gestora carrega a semana selecionada de uma vez e partilha esses dados com a secção Produção; ações concluídas atualizam a lista partilhada. O perfil Produção continua a carregar apenas a data selecionada.
 
 ### Pedidos e disponibilidade
 
-1. A Gestora entra pela autenticação interna e abre a secção “Gestão” dentro da tab única “Equipa”. A lista prioriza pedidos `Pendente`; filtros rápidos levam a Confirmados, Em produção, Prontos e Cancelados.
+1. A Gestora entra pela autenticação interna e abre a secção “Gestão” dentro da tab única “Equipa”. A semana indica quantos pedidos ativos existem por dia. Ao escolher um dia, a lista prioriza pedidos `Pendente`; filtros rápidos levam a Confirmados, Em produção, Prontos e Cancelados.
 2. Cada cartão de pedido mostra levantamento, nome/contacto, estado, itens, total, sinal exigido, valor pago e saldo. Ações disponíveis dependem do estado e da resposta da API.
 3. A vista “Agenda” agrupa por data e mostra ocupação de bolos personalizados como número de itens físicos confirmados sobre seis. Pedidos Pendentes aparecem numa lista separada e não incrementam ocupação. O valor mostrado é indicativo e sujeito à confirmação atómica no servidor.
 4. Antes de pedir ao Cliente que pague o sinal, a Gestora verifica a agenda. O `POST /api/orders` já recusou uma data cheia quando o pedido foi criado, mas um Pendente não reserva a vaga; outra confirmação pode ocupá-la entretanto. A agenda é indicativa, e a confirmação com sinal revalida capacidade atomicamente. A interface não deve apresentar a aceitação do pedido Pendente como garantia de vaga.

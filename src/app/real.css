@@ -424,6 +424,7 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 @media (max-width: 720px) {
   body { font-size: 15px; padding-bottom: 76px; }
   .staff-management-tools { grid-template-columns: 1fr; }
+  .staff-week { overflow-x: auto; grid-template-columns: repeat(7, minmax(76px, 1fr)); padding-bottom: 4px; }
   .staff-tabs button { max-width: none; }
   .site-header { justify-content: center; }
   .logo-sub { display: none; }

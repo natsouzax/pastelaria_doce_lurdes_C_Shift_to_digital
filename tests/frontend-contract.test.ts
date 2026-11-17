@@ -29,10 +29,12 @@ test('staff requests use local pickup date and an idempotent payment key', async
   }) as typeof fetch;
   try {
     await api.staffOrders('2026-11-24');
+    await api.staffOrders('2026-11-23','2026-11-29');
     await api.payment('order-1','deposit',1700,true,'3c84079b-9608-48bd-9c93-a24e7d0e2145');
     assert.equal(requests[0].path,'/api/staff/orders?pickup_date=2026-11-24');
-    assert.equal(new Headers(requests[1].init.headers).get('Idempotency-Key'),'3c84079b-9608-48bd-9c93-a24e7d0e2145');
-    assert.deepEqual(JSON.parse(String(requests[1].init.body)),{kind:'deposit',amount_cents:1700,external_payment_received:true,note:null});
+    assert.equal(requests[1].path,'/api/staff/orders?pickup_date_from=2026-11-23&pickup_date_to=2026-11-29');
+    assert.equal(new Headers(requests[2].init.headers).get('Idempotency-Key'),'3c84079b-9608-48bd-9c93-a24e7d0e2145');
+    assert.deepEqual(JSON.parse(String(requests[2].init.body)),{kind:'deposit',amount_cents:1700,external_payment_received:true,note:null});
   } finally { globalThis.fetch = original; }
 });
 
