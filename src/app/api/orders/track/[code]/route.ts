@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { db } from '@/lib/db';
+import { canCustomerCancel } from '@/lib/domain';
 import { ApiError, jsonError } from '@/lib/http';
 import { NextResponse } from 'next/server';
 
@@ -24,12 +25,13 @@ export async function GET(request: Request, context: { params: Promise<{ code: s
       if ((counts.get(ipKey) ?? 0) >= 60 || (counts.get(codeKey) ?? 0) >= 20) return { limited: true as const };
       if (!/^[A-Za-z0-9_-]{32}$/.test(code)) return { order: null };
       const hash = createHash('sha256').update(code).digest('hex');
-      const orders = await tx`select id, status, pickup_at, total_cents from public.orders where tracking_code_hash = ${hash}`;
+      const orders = await tx`select id, status, pickup_at, total_cents, capacity_resolution_required from public.orders where tracking_code_hash = ${hash}`;
       if (!orders[0]) return { order: null };
       const items = await tx`select product_name_snapshot as product_name, quantity, unit_snapshot as unit, weight_kg, cake_message, production_status from public.order_items where order_id = ${orders[0].id} order by created_at, id`;
-      const paidRows = await tx`select coalesce(sum(case when kind = 'refund' then -amount_cents else amount_cents end), 0)::integer as paid from public.simulated_payments where order_id = ${orders[0].id}`;
+      const paidRows = await tx`select coalesce(sum(case when kind = 'refund' then -amount_cents else amount_cents end), 0)::integer as paid, count(*)::integer as payment_count from public.simulated_payments where order_id = ${orders[0].id}`;
       return { order: { status: orders[0].status, pickup_at: orders[0].pickup_at, total_cents: orders[0].total_cents, items, amount_paid_cents: paidRows[0].paid,
-        balance_due_cents: Math.max(0, Number(orders[0].total_cents) - Number(paidRows[0].paid)) } };
+        balance_due_cents: Math.max(0, Number(orders[0].total_cents) - Number(paidRows[0].paid)),
+        can_cancel: canCustomerCancel({ status: String(orders[0].status), paymentCount: Number(paidRows[0].payment_count), capacityResolutionRequired: Boolean(orders[0].capacity_resolution_required) }) } };
     });
     if (outcome.limited) throw new ApiError(429, 'RATE_LIMITED', 'Demasiadas tentativas. Tente novamente mais tarde.');
     if (!outcome.order) throw new ApiError(404, 'NOT_FOUND', 'Pedido não encontrado.');

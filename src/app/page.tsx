@@ -105,6 +105,11 @@ export default function Home() {
     }
   }
 
+  async function cancelTrackedOrder() {
+    await api.cancelTracked(trackingCode);
+    setTracked(await api.track(trackingCode));
+  }
+
   const tab = (name: View, label: string, badge?: number) => <button type="button" className={`nav-item nav-item--${name}${view === name ? ' active' : ''}`} aria-current={view === name ? 'page' : undefined} onClick={() => goTo(name)}>
     {name === 'cart' && <Icon name="bag" size={20} />}<span>{label}</span>{badge ? <span className="nav-badge" aria-label={`${badge} no cesto`}>{badge}</span> : null}
   </button>;
@@ -123,7 +128,7 @@ export default function Home() {
         <HowToOrder />
       </>}
       {view === 'cart' && <Checkout lines={lines} products={products} update={updateLine} remove={removeLine} duplicate={duplicateLine} shop={() => goTo('shop')} submit={submitOrder} busy={busy} error={submitError} created={created} track={() => goTo('track')} />}
-      {view === 'track' && <Tracking code={trackingCode} setCode={setTrackingCode} tracked={tracked} error={trackError} busy={busy} submit={trackOrder} />}
+      {view === 'track' && <Tracking code={trackingCode} setCode={setTrackingCode} tracked={tracked} error={trackError} busy={busy} submit={trackOrder} cancel={cancelTrackedOrder} />}
       {view === 'staff' && <Staff />}
     </main>
 

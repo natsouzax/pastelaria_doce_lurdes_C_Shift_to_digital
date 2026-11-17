@@ -50,3 +50,14 @@ export function balanceDue(total: number, paid: number) {
 export function capacityReserved(status: string, customCakeCount: number) {
   return customCakeCount > 0 && ['confirmed', 'in_production', 'ready', 'delivered'].includes(status);
 }
+
+/** Últimos 9 dígitos de um telefone (+351 912 345 678 e 912345678 dão o mesmo valor); null se tiver menos de 9 dígitos. */
+export function phoneTail(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 9 ? digits.slice(-9) : null;
+}
+
+/** O cliente só pode cancelar online pedidos ainda por confirmar/confirmados, sem qualquer pagamento e sem conflito de capacidade. */
+export function canCustomerCancel(order: { status: string; paymentCount: number; capacityResolutionRequired: boolean }) {
+  return (order.status === 'pending' || order.status === 'confirmed') && order.paymentCount === 0 && !order.capacityResolutionRequired;
+}

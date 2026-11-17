@@ -47,3 +47,21 @@ test('Lisbon pickup offsets follow winter and summer time', () => {
   assert.equal(lisbonPickupTimestamp('2026-11-24','10:00'),'2026-11-24T10:00:00+00:00');
   assert.equal(lisbonPickupTimestamp('2026-07-24','10:00'),'2026-07-24T10:00:00+01:00');
 });
+
+test('customer lookup and cancel use POST without sending order data in the URL', async () => {
+  const original = globalThis.fetch;
+  const requests: Array<{ path: string; init: RequestInit }> = [];
+  globalThis.fetch = (async (path: RequestInfo | URL, init: RequestInit) => {
+    requests.push({ path: String(path), init });
+    return new Response(JSON.stringify(String(path).includes('/cancel') ? { status: 'cancelled' } : { data: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await api.ordersByPhone(' 912 345 678 '), []);
+    assert.equal(requests[0].path, '/api/orders/lookup');
+    assert.equal(requests[0].init.method, 'POST');
+    assert.deepEqual(JSON.parse(String(requests[0].init.body)), { phone: '912 345 678' });
+    await api.cancelTracked(' abc ');
+    assert.equal(requests[1].path, '/api/orders/track/abc/cancel');
+    assert.equal(requests[1].init.method, 'POST');
+  } finally { globalThis.fetch = original; }
+});
