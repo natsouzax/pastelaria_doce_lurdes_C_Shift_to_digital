@@ -383,7 +383,8 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 .dialog[open] { animation: pop .3s var(--ease); }
 .dialog h2 { font-size: 24px; margin-bottom: 10px; }
 .dialog p { color: var(--muted); }
-.dialog form { display: grid; gap: 12px; }
+.dialog form, .notify { display: grid; gap: 12px; }
+.order-notify { display: flex; padding-top: 4px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 
 .toast { position: fixed; z-index: 60; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 18px; max-width: min(92vw, 520px); padding: 12px 14px 12px 20px; border-radius: 999px; background: var(--blue); color: #fff; box-shadow: 0 16px 40px rgba(15, 42, 74, .3); font-size: 14px; animation: toast .45s var(--ease) both; }
