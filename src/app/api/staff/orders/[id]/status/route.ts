@@ -45,7 +45,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         await tx`update public.orders set status='confirmed',confirmed_at=now(),updated_at=now() where id=${id}::uuid`;
       } else if (body.status === 'delivered') {
         if (order.status !== 'ready') throw new ApiError(409, 'INVALID_STATE', 'Só encomendas prontas podem ser entregues.');
-        if (paid < Number(order.total_cents)) throw new ApiError(409, 'INVALID_STATE', 'O saldo tem de estar pago antes da entrega.');
         await tx`update public.orders set status='delivered',updated_at=now() where id=${id}::uuid`;
       } else {
         if (!['pending','confirmed','in_production','ready'].includes(order.status) || order.capacity_resolution_required) throw new ApiError(409, 'INVALID_STATE', 'A encomenda não pode ser cancelada por esta ação. Resolva primeiro o sinal recebido sem vaga.');

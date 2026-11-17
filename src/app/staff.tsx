@@ -5,7 +5,7 @@ import { api, ApiFailure, type ItemStatus, type OrderStatus, type StaffOrder, ty
 import { dateLabel, lisbonDateString } from '@/lib/dates';
 import { createAuthClient } from '@/lib/supabase/client';
 import { isLandline, readyMessage, whatsappLink } from '@/lib/whatsapp';
-import { describeError, euro, pickupTimeLabel, units } from './presentation';
+import { describeError, euro, pickupTimeLabel, units, weightLabel } from './presentation';
 import { EmptyState, Icon, Loading, Notice, Status, statusLabel } from './ui';
 
 type Pending = { title: string; body: string; confirm: string; danger?: boolean; reason?: boolean; run: (reason?: string) => Promise<unknown> };
@@ -73,7 +73,7 @@ const weekRangeLabel = (start: string) => {
     ? `${startDate.getUTCDate()}–${endDate.getUTCDate()} ${month.format(endDate)} ${endDate.getUTCFullYear()}`
     : `${startDate.getUTCDate()} ${month.format(startDate)} – ${endDate.getUTCDate()} ${month.format(endDate)} ${endDate.getUTCFullYear()}`;
 };
-const amountLabel = (item: StaffOrder['items'][number]) => item.weight_kg ? `${item.weight_kg} kg` : `${item.quantity} × ${units[item.unit]}`;
+const amountLabel = (item: StaffOrder['items'][number]) => item.weight_kg ? weightLabel(item.weight_kg) : `${item.quantity} × ${units[item.unit]}`;
 const filters: Array<{ value: 'all' | OrderStatus; label: string }> = [{ value: 'all', label: 'Todas' }, { value: 'pending', label: 'Pendentes' }, { value: 'confirmed', label: 'Confirmadas' }, { value: 'in_production', label: 'Em produção' }, { value: 'ready', label: 'Prontas' }, { value: 'delivered', label: 'Entregues' }, { value: 'cancelled', label: 'Canceladas' }];
 
 export function Staff() {
@@ -424,7 +424,7 @@ export function Staff() {
               ? <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'deposit', order.deposit_required_cents ?? 0)}>Registar sinal {euro(order.deposit_required_cents ?? 0)}</button>
               : <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar pedido', body: `Confirma o pedido de ${order.customer_name ?? 'cliente'} para ${pickupTimeLabel(order.pickup_at)}?`, confirm: 'Confirmar', run: () => api.orderStatus(order.id, 'confirmed') })}>Confirmar pedido</button>)}
             {order.status === 'ready' && balance > 0 && <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'balance', balance)}>Registar restante {euro(balance)}</button>}
-            {order.status === 'ready' && balance === 0 && <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Marcar como entregue', body: 'O pedido passa a Entregue e já não pode ser alterado.', confirm: 'Marcar entregue', run: () => api.orderStatus(order.id, 'delivered') })}>Marcar entregue</button>}
+            {order.status === 'ready' && <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar levantamento', body: balance > 0 ? `Confirma que o cliente já levantou o pedido? O pedido ficará Entregue e continuará a mostrar ${euro(balance)} por pagar.` : 'Confirma que o cliente já levantou o pedido? O pedido ficará Entregue.', confirm: 'Marcar como levantado', run: () => api.orderStatus(order.id, 'delivered') })}>Marcar como levantado</button>}
             {order.capacity_resolution_required && paid > 0 && <button type="button" className="button secondary" disabled={staffBusy} onClick={() => askPayment(order, 'refund', paid)}>Registar reembolso</button>}
             {!['delivered', 'cancelled'].includes(order.status) && !order.capacity_resolution_required && <button type="button" className="button ghost danger-text" disabled={staffBusy} onClick={() => ask({ title: 'Cancelar pedido', body: 'A capacidade é libertada e o servidor calcula a consequência financeira.', confirm: 'Cancelar pedido', danger: true, reason: true, run: reason => api.orderStatus(order.id, 'cancelled', reason) })}>Cancelar</button>}
           </div>

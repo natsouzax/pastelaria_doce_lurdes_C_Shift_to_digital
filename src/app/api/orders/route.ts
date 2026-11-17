@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { assertLeadTime, depositRequired, parsePickup } from '@/lib/domain';
 import { normalizePortuguesePhone } from '@/lib/phone';
+import { CAKE_LIMIT_MESSAGE, DAILY_CAKE_LIMIT, cakeUnits } from '@/lib/cakes';
 import { ApiError, jsonError, parseJson } from '@/lib/http';
 import { NextResponse } from 'next/server';
 
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       await tx`select pg_advisory_xact_lock(hashtextextended(${pickupDate}, 0))`;
       const orderCount = await tx`select count(*)::integer as count from public.orders where pickup_date=${pickupDate}::date and status <> 'cancelled'`;
       if (Number(orderCount[0].count) >= 6) throw new ApiError(409, 'CAPACITY_FULL', 'Esta data já atingiu o limite de seis encomendas. Escolha outra data.');
-      const products = await tx`select id, name, unit, unit_price_cents, allergens, min_lead_hours, is_custom_cake from public.products where active = true and id = any(${productIds}::uuid[])`;
+      const products = await tx`select id, name, category, unit, unit_price_cents, allergens, min_lead_hours, is_custom_cake from public.products where active = true and id = any(${productIds}::uuid[])`;
       const byId = new Map(products.map(p => [String(p.id), p]));
       let totalCents = 0;
       const lines = input.items.map(item => {
@@ -54,13 +55,20 @@ export async function POST(request: Request) {
         return { item, product, custom, weight, subtotal };
       });
       const hasCustom = lines.some(l => l.custom);
-      const requestedCakes = lines.filter(l => l.custom).length;
+      // Máximo de 6 bolos (personalizados ou não) por dia, contando também pedidos ainda pendentes.
+      const requestedCakes = lines.reduce((sum, l) => sum + cakeUnits({ category: String(l.product.category), is_custom_cake: l.custom, unit: String(l.product.unit) }, l.item.quantity), 0);
+      if (requestedCakes > DAILY_CAKE_LIMIT) throw new ApiError(409, 'CAKE_LIMIT', CAKE_LIMIT_MESSAGE);
       if (requestedCakes) {
-        const occupied = await tx`select count(*)::integer as count from public.order_items i
-          join public.orders o on o.id=i.order_id
-          where o.pickup_date=${pickupDate}::date and o.status in ('confirmed','in_production','ready','delivered')
-            and i.is_custom_cake`;
-        if (Number(occupied[0].count) + requestedCakes > 6) throw new ApiError(409, 'CAPACITY_FULL', 'A data já tem seis bolos personalizados reservados.');
+        // Mesma regra de cakeUnits() em src/lib/cakes.ts.
+        const occupied = await tx`select coalesce(sum(case
+            when i.is_custom_cake then 1
+            when lower(p.category) like '%bolo%' then case when i.unit_snapshot = 'unidade' then greatest(1, ceil(i.quantity))::integer else 1 end
+            else 0 end), 0)::integer as count
+          from public.order_items i
+          join public.orders o on o.id = i.order_id
+          join public.products p on p.id = i.product_id
+          where o.pickup_date = ${pickupDate}::date and o.status <> 'cancelled'`;
+        if (Number(occupied[0].count) + requestedCakes > DAILY_CAKE_LIMIT) throw new ApiError(409, 'CAKE_LIMIT', CAKE_LIMIT_MESSAGE);
       }
       const deposit = depositRequired(totalCents, hasCustom);
       const orders = await tx`

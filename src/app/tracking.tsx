@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, type PhoneOrder, type TrackedOrder } from '@/lib/api';
 import { dateLabel } from '@/lib/dates';
-import { describeError, euro, pickupTimeLabel, units, type Problem } from './presentation';
+import { describeError, euro, pickupTimeLabel, units, weightLabel, type Problem } from './presentation';
 import { Icon, Notice, Status, Timeline } from './ui';
 
 type Props = { code: string; setCode: (code: string) => void; tracked: TrackedOrder | null; error: Problem | null; busy: boolean; submit: (event: React.FormEvent) => void; cancel: () => Promise<void> };
@@ -31,7 +31,7 @@ function PhoneLookup() {
         <p className="muted tracking-hint">{orders.length === 1 ? '1 pedido encontrado' : `${orders.length} pedidos encontrados`}. Por privacidade, aqui só mostramos o estado e os produtos. Para ver valores e mensagens, ou para cancelar um pedido, use o código dele.</p>
         {orders.map((order, index) => <article className="panel phone-order" key={index}>
           <div className="phone-order-head"><div><span className="eyebrow">Levantamento</span><h2>{dateLabel(new Date(order.pickup_at))} · {pickupTimeLabel(order.pickup_at)}</h2></div><Status value={order.status} /></div>
-          <ul>{order.items.map((item, itemIndex) => <li key={itemIndex}><span>{item.product_name}</span><span className="muted">{item.weight_kg ? `${item.weight_kg} kg` : `${item.quantity} × ${units[item.unit]}`}</span></li>)}</ul>
+          <ul>{order.items.map((item, itemIndex) => <li key={itemIndex}><span>{item.product_name}</span><span className="muted">{item.weight_kg ? weightLabel(item.weight_kg) : `${item.quantity} × ${units[item.unit]}`}</span></li>)}</ul>
         </article>)}
       </div>}
     </div>
@@ -75,7 +75,7 @@ export function Tracking({ code, setCode, tracked, error, busy, submit, cancel }
             <dl className="money"><div><dt>Total</dt><dd>{euro(tracked.total_cents)}</dd></div><div><dt>Pago</dt><dd>{euro(tracked.amount_paid_cents)}</dd></div><div><dt>Por pagar</dt><dd>{euro(tracked.balance_due_cents)}</dd></div></dl></aside>
         </div>
         <h2 className="tracked-heading">Os seus produtos</h2>
-        <div className="tracked-list">{tracked.items.map((item, index) => <article className="tracked-item" key={index}><div><h3>{item.product_name}</h3><p>{item.weight_kg ? `${item.weight_kg} kg` : `${item.quantity} × ${units[item.unit]}`}</p>{item.cake_message && <p>Mensagem: “{item.cake_message}”</p>}</div><Status value={item.production_status} /></article>)}</div>
+        <div className="tracked-list">{tracked.items.map((item, index) => <article className="tracked-item" key={index}><div><h3>{item.product_name}</h3><p>{item.weight_kg ? weightLabel(item.weight_kg) : `${item.quantity} × ${units[item.unit]}`}</p>{item.cake_message && <p>Mensagem: “{item.cake_message}”</p>}</div><Status value={item.production_status} /></article>)}</div>
         {tracked.can_cancel && <CancelOrder cancel={cancel} />}
         {tracked.status === 'cancelled' && <Notice>Este pedido foi cancelado.</Notice>}
       </div>}

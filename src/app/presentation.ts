@@ -1,6 +1,7 @@
 import { ApiFailure, type Product } from '@/lib/api';
 
 export const euro = (cents: number) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(cents / 100);
+export const weightLabel = (weight: number | string) => `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 3 }).format(Number(weight))} kg`;
 export const units: Record<Product['unit'], string> = { kg: 'kg', unidade: 'unidade', cento: 'cento', duzia: 'dúzia', meia_duzia: 'meia dúzia' };
 export const pickupTimeLabel = (value: string) => new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 export const leadLabel = (hours: number) => hours % 24 === 0 ? `${hours / 24} ${hours === 24 ? 'dia' : 'dias'}` : `${hours} horas`;
@@ -31,6 +32,7 @@ export function categoryOf(product: Product): Category | null {
 export type Problem = { code: string; message: string };
 
 const messages: Record<string, string> = {
+  CAKE_LIMIT: 'Cada dia aceita no máximo 6 bolos. Para encomendar mais bolos para o mesmo dia, contacte diretamente a pastelaria.',
   CAPACITY_FULL: 'Esta data já atingiu o limite de seis encomendas ou de capacidade para bolos personalizados. Escolha outro dia de levantamento.',
   CAPACITY_LOST_AFTER_PAYMENT: 'O sinal foi registado, mas a vaga deixou de estar disponível. É necessário reagendar ou registar o reembolso.',
   PICKUP_TOO_SOON: 'O levantamento escolhido não respeita a antecedência necessária. Escolha uma data mais tarde.',
@@ -45,7 +47,7 @@ export function describeError(error: unknown): Problem {
   return { code: 'UNKNOWN', message: error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.' };
 }
 
-export const pickupProblems = ['CAPACITY_FULL', 'PICKUP_TOO_SOON', 'MONDAY_PICKUP'];
+export const pickupProblems = ['CAKE_LIMIT', 'CAPACITY_FULL', 'PICKUP_TOO_SOON', 'MONDAY_PICKUP'];
 
 /** These are illustrative images. Unknown products intentionally have no image. */
 export function productPhoto(product: Pick<Product, 'name'>): string | null {

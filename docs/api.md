@@ -81,6 +81,8 @@ Query opcional: `category`, `is_custom_cake` (`true|false`), `limit`, `cursor`. 
 
 Na mesma transação, bloquear a data local, contar encomendas não canceladas e criar `pending` apenas se houver menos de seis. Pedidos Pendentes também ocupam um dos seis lugares; cancelados libertam-no. Se já houver seis, responder `409 CAPACITY_FULL` sem criar encomenda nem código. Aplicar também a verificação separada de até seis bolos físicos personalizados confirmados (e estados seguintes) para os itens personalizados deste pedido. Recalcular preços, total, sinal e regras com os dados de catálogo no servidor. Corpo:
 
+O mesmo bloqueio aplica o limite de **6 bolos por dia de levantamento** (qualquer produto de categoria Bolo ou bolo personalizado, incluindo pedidos pendentes e excluindo cancelados): se o pedido sozinho ou somado ao dia ultrapassar 6, responde `409 CAKE_LIMIT` sem criar pedido. O carrinho avisa e bloqueia antes de enviar.
+
 ```json
 {
   "customer": {"name": "Inês", "phone": "+351000000000"},
@@ -135,7 +137,7 @@ Devolve `{ "role": "manager" | "production" }` após validar sessão e `staff_pr
 
 ### `POST /api/staff/orders/{id}/payments` — Gestora
 
-Corpo: `{"kind":"deposit|balance|refund","amount_cents":1700,"external_payment_received":true,"note":null}`. Valor positivo. `deposit` apenas em `pending`; `balance` em `confirmed|in_production|ready`; `refund` em cancelamento permitido ou resolução manual explicitamente autorizada. Para deposit personalizado, aceitar apenas valor exato de `deposit_required_cents`; para encomenda sem personalizado rejeitar `deposit` e usar confirmação explícita. Para restante, valor não pode exceder saldo; `ready` não pode ser entregue sem saldo zero.
+Corpo: `{"kind":"deposit|balance|refund","amount_cents":1700,"external_payment_received":true,"note":null}`. Valor positivo. `deposit` apenas em `pending`; `balance` em `confirmed|in_production|ready`; `refund` em cancelamento permitido ou resolução manual explicitamente autorizada. Para deposit personalizado, aceitar apenas valor exato de `deposit_required_cents`; para encomenda sem personalizado rejeitar `deposit` e usar confirmação explícita. Para restante, valor não pode exceder saldo. Uma encomenda `ready` pode ser marcada como entregue quando levantada mesmo com saldo em falta; o saldo continua pendente.
 
 Ao receber sinal personalizado, guardar pagamento e tentar na mesma transação confirmar estado e capacidade. Bloquear a data local (advisory/row lock transacional por `pickup_date`), contar itens personalizados de encomendas não canceladas já confirmadas e somar a nova encomenda; confirmar só se total ≤ 6. O lock e a verificação têm de estar na mesma transação PostgreSQL. Resposta `200` quando registado: `{ "payment": {"id","kind","amount_cents","recorded_at"}, "order": {"id","status","total_cents","deposit_required_cents","amount_paid_cents","balance_due_cents","capacity_reserved"}, "resolution_required": false }`.
 
@@ -162,6 +164,7 @@ Formato consistente, sem stack trace: `{"error":{"code":"VALIDATION_ERROR","mess
 | 409 | `INVALID_STATE` | Transição/ação não permitida, saldo pendente, pagamento duplicado ou pedido terminal |
 | 409 | `PICKUP_TOO_SOON` | Antecedência mínima de algum produto não cumprida |
 | 409 | `MONDAY_PICKUP` | Levantamento em segunda-feira local |
+| 409 | `CAKE_LIMIT` | No POST, o pedido (ou o pedido somado aos não cancelados do mesmo dia, incluindo pendentes) ultrapassa 6 bolos por dia de levantamento. Conta bolos personalizados, bolos vendidos ao kg (1 por linha) e bolos à unidade (pela quantidade). Para mais, o cliente contacta a pastelaria |
 | 409 | `CAPACITY_FULL` | No POST, a data já tem seis encomendas não canceladas ou a capacidade de bolos personalizados está cheia; não cria encomenda/código. Na confirmação sem pagamento externo associado, não confirma nem reserva vaga |
 | 409 | `CAPACITY_LOST_AFTER_PAYMENT` | Sinal externo já recebido e guardado, mas sem vaga; resolução requerida |
 | 409 | `PAYMENT_MISMATCH` | Tipo/valor não coincide com sinal, saldo ou política de reembolso |

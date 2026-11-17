@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CreatedOrder, NewOrder, Product } from '@/lib/api';
 import { dateLabel, lisbonDateString, lisbonPickupTimestamp } from '@/lib/dates';
+import { CAKE_LIMIT_MESSAGE, DAILY_CAKE_LIMIT, cakeUnits } from '@/lib/cakes';
 import { normalizePortuguesePhone } from '@/lib/phone';
-import { euro, leadLabel, lineAmount, lineTotal, pickupProblems, units, type Line, type Problem } from './presentation';
+import { euro, leadLabel, lineAmount, lineTotal, pickupProblems, units, weightLabel, type Line, type Problem } from './presentation';
 import { EmptyState, Icon, Notice, Status } from './ui';
 
 type Props = {
@@ -55,6 +56,8 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
   const total = selected.reduce((sum, { line, product }) => sum + lineTotal(line, product), 0);
   const lead = Math.max(0, ...selected.map(({ product }) => product.min_lead_hours));
   const hasCustomCake = selected.some(({ product }) => product.is_custom_cake);
+  const cakeCount = selected.reduce((sum, { line, product }) => sum + cakeUnits(product, Number(line.quantity) || 0), 0);
+  const overCakeLimit = cakeCount > DAILY_CAKE_LIMIT;
   const deposit = hasCustomCake ? Math.floor((total * 3 + 500) / 1000) * 100 : 0;
   const earliest = earliestDate(lead, time);
 
@@ -67,6 +70,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
   function validate(current: number): Errors {
     const found: Errors = {};
     if (current === 0) {
+      if (overCakeLimit) found['cake-limit'] = CAKE_LIMIT_MESSAGE;
       selected.forEach(({ line, product }) => { if (lineAmount(line, product) <= 0) found[`qty-${line.key}`] = product.is_custom_cake ? 'Indique o peso do bolo em kg.' : 'Indique uma quantidade maior que zero.'; });
     }
     if (current === 1) {
@@ -134,6 +138,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
       <ol className="steps" aria-label="Etapas da encomenda">{stepLabels.map((label, index) => <li key={label} className={index < step ? 'done' : index === step ? 'current' : ''} aria-current={step === index ? 'step' : undefined}><button type="button" disabled={index > step || busy} onClick={() => go(index)}><span>{index < step ? <Icon name="check" size={14} /> : index + 1}</span><b>{label}</b></button></li>)}</ol>
       <form className="checkout-layout" onSubmit={proceed} noValidate>
         <div className="panel">
+          {step === 0 && overCakeLimit && <Notice tone="error"><strong>Demasiados bolos para um só dia ({cakeCount}).</strong> {CAKE_LIMIT_MESSAGE}</Notice>}
           {step === 0 && <div className="cart-list">{selected.map(({ line, product }, index) => {
             const qtyId = `qty-${line.key}`;
             return <fieldset className="cart-item" key={line.key}>
@@ -176,7 +181,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
               <div className="review-card"><span className="review-label">Contacto</span><strong>{name}</strong><span>{phone}</span><button type="button" className="text-link" onClick={() => go(2)}>Alterar</button></div>
             </div>
             <div className="review-lines">{selected.map(({ line, product }) => <article key={line.key}>
-              <div><h3>{product.name}</h3><p>{product.is_custom_cake ? `${line.weight_kg} kg` : `${line.quantity} × ${units[product.unit]}`}</p>{line.cake_message && <p>Mensagem: “{line.cake_message}”</p>}{line.declared_allergies && <p><strong>Alergias declaradas:</strong> {line.declared_allergies}</p>}{line.production_notes && <p>Notas: {line.production_notes}</p>}</div>
+                <div><h3>{product.name}</h3><p>{product.is_custom_cake ? weightLabel(line.weight_kg) : `${line.quantity} × ${units[product.unit]}`}</p>{line.cake_message && <p>Mensagem: “{line.cake_message}”</p>}{line.declared_allergies && <p><strong>Alergias declaradas:</strong> {line.declared_allergies}</p>}{line.production_notes && <p>Notas: {line.production_notes}</p>}</div>
               <strong>{euro(lineTotal(line, product))}</strong>
             </article>)}<button type="button" className="text-link" onClick={() => go(0)}>Editar produtos</button></div>
             <Notice>Ao enviar, o pedido fica <strong>pendente</strong>: só é confirmado quando a Gestora verificar a disponibilidade. Não paga nada online{hasCustomCake ? ' e o sinal só é pedido depois dessa verificação' : ''}.</Notice>
@@ -185,13 +190,13 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
           {error && <Notice tone="error">{error.message}</Notice>}
           <div className="panel-foot">
             {step > 0 ? <button type="button" className="button ghost" disabled={busy} onClick={() => go(step - 1)}><Icon name="back" size={18} />Voltar</button> : <span />}
-            <button className="button primary" disabled={busy}>{busy ? 'A enviar pedido…' : step === 3 ? 'Enviar pedido' : step === 2 ? 'Rever pedido' : 'Continuar'}{!busy && <Icon name="arrow" size={18} />}</button>
+            <button className="button primary" disabled={busy || overCakeLimit}>{busy ? 'A enviar pedido…' : step === 3 ? 'Enviar pedido' : step === 2 ? 'Rever pedido' : 'Continuar'}{!busy && <Icon name="arrow" size={18} />}</button>
           </div>
         </div>
 
         <aside className="summary" aria-label="Resumo do pedido">
           <h2>Resumo</h2>
-          <ul className="summary-lines">{selected.map(({ line, product }) => <li key={line.key}><span>{product.name}<small>{product.is_custom_cake ? `${line.weight_kg || 0} kg` : `${line.quantity || 0} × ${units[product.unit]}`}</small></span><strong>{euro(lineTotal(line, product))}</strong></li>)}</ul>
+          <ul className="summary-lines">{selected.map(({ line, product }) => <li key={line.key}><span>{product.name}<small>{product.is_custom_cake ? weightLabel(line.weight_kg || 0) : `${line.quantity || 0} × ${units[product.unit]}`}</small></span><strong>{euro(lineTotal(line, product))}</strong></li>)}</ul>
           <dl className="money"><div><dt>Total estimado</dt><dd>{euro(total)}</dd></div>{deposit > 0 && <div><dt>Sinal previsto</dt><dd>{euro(deposit)}</dd></div>}</dl>
           <p className="summary-note">Valores indicativos: o servidor confirma preço e sinal. Não paga online; o pedido fica pendente até a Gestora confirmar.</p>
         </aside>

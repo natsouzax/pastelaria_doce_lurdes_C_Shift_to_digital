@@ -50,13 +50,13 @@ Na única tab “Equipa”, a Gestora encontra as secções internas “Dashboar
 5. No detalhe de um pedido personalizado, “Registar sinal” sugere o valor exigido já calculado. A Gestora regista o valor efetivamente recebido e confirma a ação; para o caso demonstrativo são 17 € num total de 56 €. O registo é simulado, não cobra dinheiro.
 6. O backend tenta registar o sinal, revalidar capacidade e confirmar na mesma transação. Em sucesso, o estado passa a `Confirmada`, a vaga é ocupada e o saldo fica 39 €. Se a vaga desaparecer antes de o pagamento externo ter sido recebido, a operação falha com `CAPACITY_FULL` sem registar pagamento. Se o pagamento já tiver sido efetivamente recebido, a interface informa que foi registado, mas a encomenda ficou sem vaga (`CAPACITY_LOST_AFTER_PAYMENT`); bloqueia nova tentativa de pagamento e orienta para reagendamento operacional ou reembolso simulado.
 7. Pedidos sem bolo personalizado são confirmados por ação explícita da Gestora; não exigem sinal pela regra v1. Registar sinal em encomenda sem personalizado é inválido.
-8. Para saldo, a Gestora abre “Registar restante”, vê o montante em falta e regista o valor recebido. A entrega fica disponível apenas quando o pedido está `Pronta` e o saldo líquido é zero.
+8. Para saldo, a Gestora abre “Registar restante”, vê o montante em falta e regista o valor recebido. Quando o cliente levantar o pedido, a Gestora pode marcá-lo como `Entregue`; qualquer saldo em falta continua visível para cobrança.
 
 ### Cancelar e entregar
 
 - “Cancelar” pede uma razão curta e mostra a consequência financeira calculada pelo servidor antes de concluir. Com pelo menos 48 horas para o levantamento, a API simula o reembolso do sinal se não houver pagamentos adicionais; menos de 48 horas, não cria reembolso do sinal. A capacidade é libertada no cancelamento.
 - Se houver pagamento adicional que impeça o reembolso automático previsto no contrato, apresentar resolução manual requerida; não fazer cancelamento parcial silencioso.
-- “Marcar entregue” só aparece para pedido `Pronta` com saldo zero. A Gestora confirma a ação e o estado passa a `Entregue`.
+- “Marcar como levantado” aparece para pedido `Pronta`. A Gestora confirma a ação e o estado passa a `Entregue`; se houver saldo, este continua registado como por pagar.
 - Encomenda entregue é terminal. O cancelamento pode ser iniciado antes da entrega, conforme as regras do contrato.
 
 ## Percurso da Produção no tablet
@@ -108,7 +108,7 @@ Produção (tablet, sessão interna)
 | Código inválido/não encontrado | “Não encontrámos um pedido com este código. Confirme-o e tente novamente.” |
 | Ação sem permissão | “Não tem permissão para esta ação. Entre com o perfil adequado ou contacte a Gestora.” |
 | Pedido criado, confirmação pendente | “Pedido recebido. Ainda não está confirmado nem reserva uma vaga. Aguarde a Gestora verificar a data antes de pagar o sinal.” |
-| Saldo por pagar ao tentar entregar | “Registe o valor em falta antes de marcar a encomenda como entregue.” |
+| Pedido levantado com saldo por pagar | A encomenda fica `Entregue` e o saldo continua indicado como por pagar. |
 | API indisponível | “Não foi possível concluir agora. Os dados continuam preenchidos; tente novamente.” |
 
 As mensagens públicas de seguimento para código válido/inválido não devem expor contacto ou permitir inferir existência do pedido. O texto e a resposta HTTP devem preservar o comportamento indistinguível definido para `NOT_FOUND` e aplicar os limites de tentativas do contrato.
