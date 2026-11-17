@@ -1,4 +1,4 @@
-import type { Product } from '@/lib/api';
+import { ApiFailure, type Product } from '@/lib/api';
 
 export const euro = (cents: number) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 export const units: Record<Product['unit'], string> = { kg: 'kg', unidade: 'unidade', cento: 'cento', duzia: 'dúzia', meia_duzia: 'meia dúzia' };
@@ -9,12 +9,36 @@ export type Line = { key: string; product_id: string; quantity: string; weight_k
 
 export const newLine = (product: Product): Line => ({ key: crypto.randomUUID(), product_id: product.id, quantity: '1', weight_kg: product.is_custom_cake ? '2' : '', cake_message: '', declared_allergies: '', production_notes: '' });
 
-export function lineTotal(line: Line, product: Product) {
+export function lineAmount(line: Line, product: Product) {
   const amount = Number(product.is_custom_cake ? line.weight_kg : line.quantity);
-  return Number.isFinite(amount) && amount > 0 ? Math.round(amount * product.unit_price_cents) : 0;
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
 }
 
-export function categoryOf(product: Product) {
+export const lineTotal = (line: Line, product: Product) => Math.round(lineAmount(line, product) * product.unit_price_cents);
+
+export type Category = 'Bolos' | 'Doces' | 'Salgados';
+export const categories: Category[] = ['Bolos', 'Doces', 'Salgados'];
+
+export function categoryOf(product: Product): Category {
   const name = product.category.toLowerCase();
   return name.includes('salgad') ? 'Salgados' : name.includes('doce') ? 'Doces' : 'Bolos';
 }
+
+export type Problem = { code: string; message: string };
+
+const messages: Record<string, string> = {
+  CAPACITY_FULL: 'Essa data já atingiu a capacidade de seis bolos personalizados. Escolha outro dia de levantamento.',
+  CAPACITY_LOST_AFTER_PAYMENT: 'O sinal foi registado, mas a vaga deixou de estar disponível. É necessário reagendar ou registar o reembolso.',
+  PICKUP_TOO_SOON: 'O levantamento escolhido não respeita a antecedência necessária. Escolha uma data mais tarde.',
+  MONDAY_PICKUP: 'Não há levantamentos à segunda-feira. Escolha outro dia.',
+  UNAUTHENTICATED: 'A sessão terminou. Entre novamente.',
+  FORBIDDEN: 'Esta conta não tem permissão para esta ação.',
+  RATE_LIMITED: 'Foram feitas demasiadas consultas seguidas. Aguarde um momento e tente outra vez.',
+};
+
+export function describeError(error: unknown): Problem {
+  if (error instanceof ApiFailure) return { code: error.code, message: messages[error.code] ?? error.message };
+  return { code: 'UNKNOWN', message: error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.' };
+}
+
+export const pickupProblems = ['CAPACITY_FULL', 'PICKUP_TOO_SOON', 'MONDAY_PICKUP'];

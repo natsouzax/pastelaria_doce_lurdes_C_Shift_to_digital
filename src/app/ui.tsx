@@ -1,6 +1,6 @@
 import type { OrderStatus } from '@/lib/api';
 
-const labels: Record<string, string> = {
+const statusLabels: Record<string, string> = {
   pending: 'A aguardar confirmação',
   confirmed: 'Confirmada',
   in_production: 'Em produção',
@@ -11,68 +11,78 @@ const labels: Record<string, string> = {
   in_progress: 'Em produção',
 };
 
+export const statusLabel = (value: string) => statusLabels[value] ?? value;
+
 export function Status({ value }: { value: string }) {
-  return <span className={`status status--${value}`}><i aria-hidden="true" />{labels[value] ?? value}</span>;
+  return <span className={`status status--${value}`}><i aria-hidden="true" />{statusLabel(value)}</span>;
 }
 
-export function EmptyState({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="empty-state"><span className="empty-symbol" aria-hidden="true">✳</span><h3>{title}</h3><p>{children}</p></div>;
+const paths = {
+  clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
+  bag: <><path d="M5.5 8.5h13l-1 11.5h-11l-1-11.5Z" /><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+  back: <path d="M19 12H5m6-6-6 6 6 6" />,
+  alert: <><circle cx="12" cy="12" r="8.5" /><path d="M12 8v4.5M12 16v.01" /></>,
+  calendar: <><rect x="4.5" y="5.5" width="15" height="14" rx="2" /><path d="M4.5 10h15M9 3.5v4M15 3.5v4" /></>,
+  copy: <><rect x="8.5" y="8.5" width="11" height="11" rx="2" /><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" /></>,
+  phone: <path d="M7 4.5h3l1.5 4-2 1.3a10 10 0 0 0 4.7 4.7l1.3-2 4 1.5v3a2 2 0 0 1-2 2A14 14 0 0 1 5 6.5a2 2 0 0 1 2-2Z" />,
+  cake: <><path d="M4 20h16M5 20v-6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6" /><path d="M5 15.5c2 1.4 3.2 1.4 5 0s3.2-1.4 5 0c1.5 1.2 2.8 1.2 4 0" /><path d="M12 12V8.5M12 8.5c-1.2-1-1.2-2.2 0-3.5 1.2 1.300 1.2 2.5 0 3.5Z" /></>,
+  sweet: <><path d="M5 12.5a7 6 0 0 1 14 0H5Z" /><path d="m6.500 12.5 1.5 7h8l1.5-7" /><path d="M10 9.5v.01M14 8.5v.01M12 11v.01" /></>,
+  savoury: <><path d="M4 17.5C4 11 8 7 13 7c4 0 7 3 7 6 0 3.2-3 4.5-5 4.5H4Z" /><path d="M9 13c1.5 1 3.2 1 4.800 0" /></>,
+  sparkle: <path d="M12 4v5M12 15v5M4 12h5m6 0h5" />,
+} as const;
+
+export type IconName = keyof typeof paths;
+
+export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
+  return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export function Loading({ label }: { label: string }) {
-  return <div className="loading" role="status"><p>{label}</p><div className="skeleton-grid">{[0, 1, 2].map(index => <div className="skeleton" key={index} />)}</div></div>;
+export function EmptyState({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+  return <div className="empty-state"><span className="empty-symbol"><Icon name="sparkle" size={22} /></span><h3>{title}</h3><p>{children}</p>{action}</div>;
 }
 
-export function HeroArt() {
-  return <svg className="hero-art" viewBox="0 0 520 620" role="img" aria-label="Mãos a decorar um bolo, sem mostrar rosto">
-    <rect width="520" height="620" rx="36" fill="#f7f0e2" />
-    <path d="M64 0h392v392c0 125-88 214-196 214S64 517 64 392Z" fill="#102b4e" />
-    <circle cx="260" cy="204" r="132" fill="#173a64" />
-    <circle cx="260" cy="204" r="104" fill="none" stroke="#c6a15b" strokeWidth="1.5" opacity=".65" />
-    <path d="M52 430h416v190H52Z" fill="#f0e1c6" />
-    <ellipse cx="260" cy="438" rx="168" ry="30" fill="#e3cfa8" />
-    <ellipse cx="260" cy="430" rx="150" ry="26" fill="#fffaf0" />
-    <path d="M172 306h176l-14 118c-2 18-33 30-74 30s-72-12-74-30Z" fill="#c6a15b" />
-    <path d="M172 306h176v28H172Z" fill="#f7f0e2" />
-    <path d="M172 334c34 22 142 22 176 0v34c-38 24-138 24-176 0Z" fill="#fff7e8" />
-    <path d="M172 368c38 24 138 24 176 0v30c-38 26-138 26-176 0Z" fill="#ead7b4" />
-    <ellipse cx="260" cy="306" rx="88" ry="20" fill="#fffaf0" />
-    <path d="M174 305c0-11 39-20 86-20s86 9 86 20v10c0-11-39-20-86-20s-86 9-86 20Z" fill="#f0d9ae" />
-    <path d="M205 290c8-18 22-31 38-38M294 288c-8-18-20-30-36-37" stroke="#c6a15b" strokeWidth="4" strokeLinecap="round" />
-    <circle cx="260" cy="276" r="11" fill="#b4523f" />
-    <circle cx="242" cy="269" r="6" fill="#b4523f" />
-    <circle cx="278" cy="269" r="6" fill="#b4523f" />
-    <path d="M252 252c4-16 12-25 20-30 4 15 1 25-10 32Z" fill="#2f6b52" />
-    <path d="M96 408c22-36 52-58 84-66 18-4 31 3 34 17 3 13-7 23-23 29-22 8-39 25-49 48Z" fill="#f1c9a4" />
-    <path d="M116 391c20-23 42-36 66-42 13-3 23 1 26 10 3 10-5 18-17 22-19 6-33 18-43 36Z" fill="#f7dcc0" />
-    <path d="M424 404c-24-34-54-54-86-60-18-3-30 5-32 19-2 13 9 22 25 27 22 7 38 24 47 46Z" fill="#f1c9a4" />
-    <path d="M404 387c-21-21-43-33-67-37-13-2-22 3-24 12-2 10 7 17 19 20 19 5 33 17 42 34Z" fill="#f7dcc0" />
-    <path d="M232 190c14-14 30-14 44 0M246 176l14-14 14 14" stroke="#c6a15b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    <circle cx="92" cy="150" r="4" fill="#c6a15b" />
-    <circle cx="428" cy="126" r="3" fill="#c6a15b" />
-    <path d="M410 206v18M401 215h18" stroke="#c6a15b" strokeWidth="2.5" strokeLinecap="round" />
-    <text x="260" y="572" textAnchor="middle" fill="#102b4e" fontFamily="Volkhov, Georgia, serif" fontSize="28" letterSpacing="6">FEITO À MÃO</text>
-  </svg>;
+export function Notice({ tone = 'info', children }: { tone?: 'info' | 'error' | 'success'; children: React.ReactNode }) {
+  return <div className={`notice notice--${tone}`} role={tone === 'error' ? 'alert' : undefined}><Icon name={tone === 'success' ? 'check' : 'alert'} size={18} /><div>{children}</div></div>;
 }
 
-export function ProductArt({ name, category }: { name: string; category: string }) {
-  const savoury = category.toLowerCase().includes('salgad');
-  const sweet = category.toLowerCase().includes('doce');
-  const base = savoury ? '#e8d6b6' : sweet ? '#f2dcc1' : '#e8cfa8';
-  const top = savoury ? '#c98b5a' : sweet ? '#d28b7a' : '#b86a4d';
-  return <svg className="product-art" viewBox="0 0 320 220" role="img" aria-label={`Ilustração de ${name}`}>
-    <rect width="320" height="220" rx="18" fill="#f9f4ea" />
-    <circle cx="160" cy="106" r="80" fill="#fffdf8" />
-    <circle cx="160" cy="106" r="66" fill="none" stroke="#e2d3b6" strokeWidth="2" />
-    <ellipse cx="160" cy="168" rx="86" ry="14" fill="#e7dcc7" />
-    {savoury ? <><path d="M92 150c14-46 54-72 109-64 28 4 44 22 32 42-10 17-36 10-52 22-19 14-51 18-89 0Z" fill={base} stroke={top} strokeWidth="3" /><path d="M112 138c24-24 58-34 92-26" stroke={top} strokeWidth="4" strokeLinecap="round" /><circle cx="140" cy="132" r="4" fill={top} /><circle cx="182" cy="122" r="4" fill={top} /><circle cx="200" cy="143" r="3" fill={top} /></> : <><path d="M100 150h120l-10-52c-2-10-22-16-50-16s-48 6-50 16Z" fill={base} stroke={top} strokeWidth="3" /><path d="M100 116c22 14 98 14 120 0v18c-24 16-96 16-120 0Z" fill="#fff8ec" /><ellipse cx="160" cy="98" rx="50" ry="13" fill="#fffaf0" /><path d="M142 84c5-14 14-22 24-26 6 13 3 23-8 29Z" fill="#2f6b52" /><circle cx="160" cy="90" r="8" fill={top} /></>}
-    <path d="M54 62l6-10M266 58l8-8M272 76h12" stroke="#c6a15b" strokeWidth="2.5" strokeLinecap="round" />
-  </svg>;
+export function Loading({ label, count = 6 }: { label: string; count?: number }) {
+  return <div className="loading" role="status" aria-label={label}><div className="skeleton-grid">{Array.from({ length: count }, (_, index) => <div className="skeleton" key={index} />)}</div></div>;
+}
+
+/** Placeholder do hero. Para usar uma fotografia real (mãos a preparar o bolo, sem rostos), defina o caminho em public/. */
+export const HERO_PHOTO: string | null = null;
+
+export function HeroVisual() {
+  return <div className="hero-visual">
+    <div className="hero-arch">
+      {HERO_PHOTO ? <img src={HERO_PHOTO} alt="Mãos a preparar um bolo na pastelaria Doce Lurdes" /> : <svg viewBox="0 0 480 560" role="img" aria-label="Ilustração de um bolo de dois andares num prato" preserveAspectRatio="xMidYMax slice">
+        <path d="M24 560V250a216 216 0 0 1 432 0v310" fill="none" stroke="#c9a661" strokeWidth="1" opacity=".55" />
+        <ellipse cx="240" cy="468" rx="178" ry="22" fill="#0a1f38" opacity=".5" />
+        <ellipse cx="240" cy="452" rx="170" ry="24" fill="#f3ead8" />
+        <ellipse cx="240" cy="446" rx="146" ry="17" fill="#fff" />
+        <rect x="132" y="350" width="216" height="92" rx="12" fill="#fff" />
+        <rect x="132" y="384" width="216" height="8" fill="#c9a661" opacity=".85" />
+        <path d="M132 362c0-6 6-12 12-12h192c6 0 12 6 12 12v6c-14 12-26 4-40 12-14 8-26-2-42 6-16-8-26 2-42-6-14-8-26 0-40-12Z" fill="#f8f2e6" />
+        <rect x="170" y="280" width="140" height="72" rx="12" fill="#fbf5e9" />
+        <rect x="170" y="312" width="140" height="6" fill="#c9a661" opacity=".85" />
+        <path d="M170 292c0-6 5-12 11-12h118c6 0 11 6 11 12v4c-12 10-22 3-34 9-12 6-20-2-36 4-16-6-24 2-36-4-12-6-22 1-34-9Z" fill="#fff" />
+        <circle cx="240" cy="262" r="11" fill="#b5524a" /><circle cx="220" cy="268" r="8" fill="#b5524a" /><circle cx="260" cy="268" r="8" fill="#b5524a" />
+        <path d="M240 252c0-12 6-20 14-24M240 252c0-10-5-17-12-21" stroke="#c9a661" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+        <circle cx="98" cy="196" r="2.5" fill="#c9a661" /><circle cx="388" cy="150" r="2" fill="#c9a661" /><path d="M392 252v14m-7-7h14" stroke="#c9a661" strokeWidth="2" strokeLinecap="round" />
+      </svg>}
+    </div>
+    <div className="hero-card" aria-hidden="true"><span className="hero-card-icon"><Icon name="cake" size={22} /></span><div><strong>Bolos personalizados</strong><span>Peso, mensagem e alergias à medida</span></div></div>
+    <div className="hero-seal" aria-hidden="true"><span>Feito</span><em>à mão</em></div>
+  </div>;
 }
 
 export function Timeline({ status }: { status: OrderStatus }) {
   const steps = ['pending', 'confirmed', 'in_production', 'ready', 'delivered'];
   const current = steps.indexOf(status);
-  if (status === 'cancelled') return <p className="notice">Este pedido foi cancelado. Contacte a pastelaria se precisar de ajuda.</p>;
-  return <ol className="timeline" aria-label="Progresso da encomenda">{steps.map((step, index) => <li key={step} className={index <= current ? 'complete' : ''} aria-current={index === current ? 'step' : undefined}><span aria-hidden="true">{index < current ? '✓' : index + 1}</span><div>{labels[step]}{index === current && <small>Estado atual</small>}</div></li>)}</ol>;
+  if (status === 'cancelled') return <Notice tone="error">Este pedido foi cancelado. Contacte a pastelaria se precisar de ajuda.</Notice>;
+  return <ol className="timeline" aria-label="Progresso da encomenda">{steps.map((step, index) => <li key={step} className={index < current ? 'done' : index === current ? 'current' : ''} aria-current={index === current ? 'step' : undefined}><span className="timeline-dot" aria-hidden="true">{index < current ? <Icon name="check" size={14} /> : index + 1}</span><span className="timeline-label">{statusLabel(step)}</span></li>)}</ol>;
 }
