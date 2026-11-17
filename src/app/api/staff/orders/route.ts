@@ -25,7 +25,6 @@ export async function GET(request: Request) {
       if (date !== null || !validDate(dateFrom) || !validDate(dateTo)) throw new ApiError(400, 'VALIDATION_ERROR', 'Indique pickup_date_from e pickup_date_to válidos.');
       const days = (Date.parse(`${dateTo}T00:00:00Z`) - Date.parse(`${dateFrom}T00:00:00Z`)) / 86_400_000;
       if (days !== 6) throw new ApiError(400, 'VALIDATION_ERROR', 'O intervalo deve corresponder a sete dias.');
-      if (staff.role !== 'manager') throw new ApiError(403, 'FORBIDDEN', 'A vista semanal está disponível apenas para a Gestora.');
     } else if (!validDate(date)) throw new ApiError(400, 'VALIDATION_ERROR', 'pickup_date é obrigatório (YYYY-MM-DD).');
     const requestedStatus = query.get('status');
     const statuses = ['pending', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled'];

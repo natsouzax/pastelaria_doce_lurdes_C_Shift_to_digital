@@ -36,7 +36,7 @@ O valor de papel do browser serve apenas para apresentar a secção. Cada API in
 
 ## Percurso da Gestora no telemóvel
 
-Na única tab “Equipa”, a Gestora encontra as secções internas “Gestão” e “Produção”. Em Gestão, a agenda mostra os sete dias da semana e quantos pedidos ativos há para levantamento em cada dia; escolher um dia filtra os cartões e os totais desse dia. A Gestora carrega a semana selecionada de uma vez e partilha esses dados com a secção Produção; ações concluídas atualizam a lista partilhada. O perfil Produção continua a carregar apenas a data selecionada.
+Na única tab “Equipa”, a Gestora encontra as secções internas “Gestão” e “Produção”. Ambas as secções mostram os sete dias da semana e quantos pedidos visíveis há para levantamento em cada dia; escolher um dia filtra os cartões desse dia. Em Gestão também filtra os totais e ações financeiras. A semana é carregada e partilhada entre as secções; ações concluídas atualizam a lista partilhada. O papel `production` usa a mesma navegação semanal, mas recebe apenas encomendas confirmadas/em produção/prontas e os dados necessários para produzir.
 
 ### Pedidos e disponibilidade
 
