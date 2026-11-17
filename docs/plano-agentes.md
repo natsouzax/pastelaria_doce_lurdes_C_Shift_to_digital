@@ -18,9 +18,9 @@ Este plano acompanha os worktrees/branches Orca ativos. O contrato comum está e
 
 - Cada frente trabalha na sua branch/worktree e entrega PR para revisão; apenas a coordenação indicada integra na `main`.
 - `docs/api.md` é o contrato atual de rotas, payloads, respostas, permissões e estados. Mudanças de regra requerem acordo e atualização coordenada de requisitos, contrato, backend e fluxos.
-- A política acordada diz que `POST /api/orders` faz pré-verificação instantânea: recusa se a ocupação confirmada mais os bolos pedidos exceder seis; caso contrário cria pedido `Pendente` sem reservar nem garantir vaga. A capacidade é reservada atomicamente na confirmação após o sinal.
+- A criação reserva um de seis lugares por data para cada encomenda não cancelada, contando Pendente, com bloqueio transacional. Separadamente, a capacidade de bolos personalizados é reservada atomicamente na confirmação após o sinal.
 - O relógio da fixture da demo é determinístico (`T0` terça-feira, 2026-11-17; levantamento principal sete dias depois, 2026-11-24). Não alterar relógio nem regra de produção para fazer a demo passar.
-- Os sete passos da demo têm prioridade sobre trabalho opcional. O passo 6 é atendido pela pré-verificação do POST quando a data já está cheia; a confirmação repete a verificação para cobrir concorrência.
+- Os sete passos da demo têm prioridade sobre trabalho opcional. O passo 6 recusa a sétima encomenda não cancelada; a confirmação revalida a capacidade específica de bolos personalizados.
 - Seed histórico deve preservar dados originais quando disponíveis. Datas completas inferidas não podem ser apresentadas como dados de origem.
 - Não publicar `.env`, chaves, credenciais, dados reais de contacto ou identificadores pessoais da equipa.
 

@@ -8,7 +8,7 @@ Construir o MVP de uma aplicação web para a Pastelaria Doce Lurdes:
 - **Gestora:** gere encomendas e regista pagamentos simulados.
 - **Produção:** vê a agenda do dia e avança cada item até `Pronto`.
 
-Regras centrais: catálogo com 11 produtos, antecedência de 5 dias para bolos personalizados e 48 horas para os restantes, sem levantamento à segunda-feira, máximo de 6 bolos personalizados por dia, sinal de 30% arredondado ao euro, estados por item e alergias em destaque. Fontes: `docs/requisitos.md` e `docs/contrato-mvp.md`.
+Regras centrais: catálogo com 11 produtos, antecedência de 5 dias para bolos personalizados e 48 horas para os restantes, sem levantamento à segunda-feira, máximo de 6 encomendas não canceladas e 6 bolos personalizados confirmados por dia, sinal de 30% arredondado ao euro, estados por item e alergias em destaque. Fontes: `docs/requisitos.md` e `docs/contrato-mvp.md`.
 
 ## O que temos de fazer
 

@@ -10,7 +10,7 @@ Executado neste checkout com Node.js 24.19.0 e npm 11.17.0:
 
 - `npm ci` — concluído com o lockfile integrado; auditoria npm reportou 0 vulnerabilidades.
 - `npm run typecheck` — passou.
-- `npm test` — 15 passaram, 1 ignorado; o teste de concorrência foi ignorado porque não havia `DATABASE_URL` apontando para PostgreSQL local.
+- `npm test` — 24 passaram, 1 ignorado. O teste PostgreSQL exige `RUN_DATABASE_INTEGRATION_TESTS=1` e `TEST_DATABASE_URL` local; não usa `DATABASE_URL` da aplicação.
 - `npm run build` — passou; Next.js compilou as páginas e rotas da API.
 
 O setup local com Docker não foi executado porque Docker não está instalado neste ambiente. A equipa ativou um projeto Supabase remoto separado e reportou migração, seed e teste transacional PostgreSQL concluídos (detalhes abaixo). Ainda faltam `DATABASE_URL`/host do pooler e contas Auth para testar as rotas protegidas e a aplicação ponta a ponta. O teste de migração local usa PGlite; não substitui uma execução repetível no Supabase.
@@ -83,7 +83,7 @@ Roteiro previsto para a demonstração:
 
 O teste do roteiro completo de API/UI ainda está pendente. O backend usa o relógio real; a aplicação ainda não permite injetar T0 para repetir a demo em qualquer data. A criação das contas internas também está pendente: o painel de Auth não estava acessível e o signup público atingiu rate limit. Não há contas de teste nem credenciais para publicar.
 
-`POST /api/orders` recusa uma data que já tenha seis bolos personalizados confirmados, sem criar pedido ou código (`409 CAPACITY_FULL`). Um pedido aceite fica Pendente e não reserva vaga; a confirmação revalida capacidade e reserva-a atomicamente. Cada bolo personalizado ocupa uma vaga. Cancelados libertam vaga; pedidos confirmados e estados seguintes contam para a data.
+`POST /api/orders` recusa uma data que já tenha seis encomendas não canceladas, sem criar pedido ou código (`409 CAPACITY_FULL`). O limite inclui pedidos Pendentes; um pedido cancelado liberta o lugar. Mantém-se também o limite de seis bolos personalizados confirmados por data, reservado atomicamente ao registar o sinal.
 
 ## Comandos de qualidade
 
@@ -93,7 +93,7 @@ npm test
 npm run build
 ```
 
-O teste de concorrência requer `DATABASE_URL` para uma base local com a migração aplicada. Sem essa configuração, o teste é ignorado. O projeto não integra pagamentos, email, SMS, WhatsApp ou Instagram; todos os registos de pagamento são simulados.
+O teste de capacidade PostgreSQL requer `RUN_DATABASE_INTEGRATION_TESTS=1` e `TEST_DATABASE_URL` para uma base local com as migrações aplicadas. Ligações remotas exigem também o opt-in explícito `TEST_ALLOW_REMOTE_DATABASE=true`. Sem esses valores, o teste é ignorado. O projeto não integra pagamentos, email, SMS, WhatsApp ou Instagram; todos os registos de pagamento são simulados.
 
 ## Evidência PostgreSQL remota
 

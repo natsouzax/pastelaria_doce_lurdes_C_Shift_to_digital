@@ -79,7 +79,7 @@ Query opcional: `category`, `is_custom_cake` (`true|false`), `limit`, `cursor`. 
 
 ### `POST /api/orders` — público
 
-Faz uma pré-verificação instantânea da capacidade e cria a encomenda `pending` apenas se houver capacidade observada para os bolos deste pedido. Conta os itens personalizados já confirmados (e estados seguintes, exceto cancelados) para a data local e soma o número de bolos físicos personalizados no pedido: se o total exceder seis, responder `409 CAPACITY_FULL` sem criar encomenda nem código. Se passar, criar `pending` sem reservar vaga; a resposta não garante disponibilidade futura. Recalcular preços, total, sinal e regras com os dados de catálogo no servidor. Corpo:
+Na mesma transação, bloquear a data local, contar encomendas não canceladas e criar `pending` apenas se houver menos de seis. Pedidos Pendentes também ocupam um dos seis lugares; cancelados libertam-no. Se já houver seis, responder `409 CAPACITY_FULL` sem criar encomenda nem código. Aplicar também a verificação separada de até seis bolos físicos personalizados confirmados (e estados seguintes) para os itens personalizados deste pedido. Recalcular preços, total, sinal e regras com os dados de catálogo no servidor. Corpo:
 
 ```json
 {
@@ -94,7 +94,7 @@ Faz uma pré-verificação instantânea da capacidade e cria a encomenda `pendin
 }
 ```
 
-Para item personalizado, `quantity` é sempre 1 e `weight_kg` obrigatório. Item comum usa `quantity` na unidade do produto e não aceita campos de bolo. Corpo não aceita preço, subtotal, estado, sinal, total, `source`, ID de encomenda ou estado de produção. Resposta `201` inclui `order_id`, `tracking_code` (exibido uma única vez), `status`, `pickup_at`, linhas com preço/total, `total_cents`, `deposit_required_cents`, `amount_paid_cents: 0`, `balance_due_cents`, `capacity_reserved: false` e mensagem para contactar a Gestora antes do pagamento. Persistir somente hash do código. Se não for possível mostrar o código após criação, permitir apenas emissão controlada por equipa, não recuperar o segredo guardado.
+Para item personalizado, `quantity` é sempre 1 e `weight_kg` obrigatório. Item comum usa `quantity` na unidade do produto e não aceita campos de bolo. Corpo não aceita preço, subtotal, estado, sinal, total, `source`, ID de encomenda ou estado de produção. Resposta `201` inclui `order_id`, `tracking_code` (exibido uma única vez), `status`, `pickup_at`, linhas com preço/total, `total_cents`, `deposit_required_cents`, `amount_paid_cents: 0`, `balance_due_cents`, `order_slot_reserved: true`, `capacity_reserved: false` (reserva específica de bolo personalizado) e mensagem para contactar a Gestora antes do pagamento. Persistir somente hash do código. Se não for possível mostrar o código após criação, permitir apenas emissão controlada por equipa, não recuperar o segredo guardado.
 
 ### `GET /api/orders/track/{code}` — público com código
 
@@ -118,7 +118,7 @@ O papel nunca vem do browser. Cada operação interna chama `requireStaff`, que 
 
 | Operação | Gestora (`manager`) | Produção (`production`) |
 | --- | --- | --- |
-| `GET /api/staff/me` e `GET /api/staff/orders` | Permitido; lista inclui contacto e dados financeiros | Permitido; só encomendas confirmadas/em produção/prontas, sem contacto nem dados financeiros |
+| `GET /api/staff/me` e `GET /api/staff/orders` | Permitido; lista inclui contacto e dados financeiros | Permitido; só encomendas confirmadas/em produção/prontas, sem dados financeiros; nome e telefone apenas quando a encomenda está `ready` |
 | `PATCH /api/staff/order-items/{id}/status` | Permitido | Permitido |
 | `PATCH /api/staff/orders/{id}/status` | Permitido | `403 FORBIDDEN` |
 | `POST /api/staff/orders/{id}/payments` | Permitido | `403 FORBIDDEN` |
@@ -127,7 +127,7 @@ As rotas de pagamento e estado da encomenda continuam exclusivas da Gestora, exi
 
 ### `GET /api/staff/orders` — Gestora ou Produção
 
-Query: `pickup_date` (`YYYY-MM-DD` em Europe/Lisbon) ou `pickup_date_from` e `pickup_date_to` inclusivos para um intervalo de sete dias; `status`, `limit` e `cursor` são opcionais. Ambos os papéis podem consultar a semana. `manager` vê dados de contacto, origem, pagamentos e ações; `production` vê apenas encomendas confirmadas e estados seguintes, itens, alergénios de catálogo, alergias declaradas, mensagem e notas de produção. Produção não recebe telefone, pagamentos ou notas gerais do cliente. Resposta `200`: `{ "data": [ { "id", "status", "pickup_at", "pickup_date", "customer_name" (apenas gestora), "items": [{"id","product_name","quantity","unit","weight_kg","cake_message","product_allergens","declared_allergies","production_notes","production_status"}], "total_cents", "amount_paid_cents", "balance_due_cents" (financeiro apenas Gestora) } ], "next_cursor": null }`.
+Query: `pickup_date` (`YYYY-MM-DD` em Europe/Lisbon) ou `pickup_date_from` e `pickup_date_to` inclusivos para um intervalo de sete dias; `status`, `limit` e `cursor` são opcionais. Ambos os papéis podem consultar a semana. `manager` vê dados de contacto, origem, pagamentos e ações; `production` vê apenas encomendas confirmadas e estados seguintes, itens, alergénios de catálogo, alergias declaradas, mensagem e notas de produção. Produção não recebe pagamentos nem notas gerais do cliente; só recebe `customer_name` e `customer_phone` nas encomendas em estado `ready`, para avisar o cliente por WhatsApp (ligação `wa.me`, sem API do WhatsApp). Resposta `200`: `{ "data": [ { "id", "status", "pickup_at", "pickup_date", "customer_name" (apenas gestora), "items": [{"id","product_name","quantity","unit","weight_kg","cake_message","product_allergens","declared_allergies","production_notes","production_status"}], "total_cents", "amount_paid_cents", "balance_due_cents" (financeiro apenas Gestora) } ], "next_cursor": null }`.
 
 ### `GET /api/staff/me` — Gestora ou Produção (extensão de integração)
 
@@ -162,13 +162,13 @@ Formato consistente, sem stack trace: `{"error":{"code":"VALIDATION_ERROR","mess
 | 409 | `INVALID_STATE` | Transição/ação não permitida, saldo pendente, pagamento duplicado ou pedido terminal |
 | 409 | `PICKUP_TOO_SOON` | Antecedência mínima de algum produto não cumprida |
 | 409 | `MONDAY_PICKUP` | Levantamento em segunda-feira local |
-| 409 | `CAPACITY_FULL` | No POST, ocupação confirmada mais bolos físicos pedidos excede seis e não cria encomenda/código; na confirmação sem pagamento externo associado, não confirma nem reserva vaga |
+| 409 | `CAPACITY_FULL` | No POST, a data já tem seis encomendas não canceladas ou a capacidade de bolos personalizados está cheia; não cria encomenda/código. Na confirmação sem pagamento externo associado, não confirma nem reserva vaga |
 | 409 | `CAPACITY_LOST_AFTER_PAYMENT` | Sinal externo já recebido e guardado, mas sem vaga; resolução requerida |
 | 409 | `PAYMENT_MISMATCH` | Tipo/valor não coincide com sinal, saldo ou política de reembolso |
 | 429 | `RATE_LIMITED` | Limite de tentativas de seguimento excedido |
 | 500 | `INTERNAL_ERROR` | Erro inesperado; incluir `request_id`, nunca detalhe interno |
 
-A pré-verificação de `POST /api/orders` é apenas instantânea e nunca reserva vaga; duas criações concorrentes podem passar quando ainda há capacidade observada. A confirmação após sinal repete a contagem e reserva atomicamente. Se a capacidade entretanto se esgotou após pagamento externo, responder `CAPACITY_LOST_AFTER_PAYMENT`. Uma confirmação sem pagamento externo associado que não consiga reservar devolve `CAPACITY_FULL`. A operação deve ser idempotente ou, em conflito concorrente, retornar o estado final existente sem duplicar pagamento/reserva. Não repetir efeitos com retries da Vercel sem chave idempotente: pagamentos usam `Idempotency-Key` obrigatório (UUID) e unicidade por utilizador; criação pública pode usar chave opcional para prevenir duplicados de submissão.
+A criação de encomendas bloqueia a data e conta encomendas não canceladas na mesma transação; pedidos simultâneos não ultrapassam seis. Esse lugar é ocupado desde o estado Pendente e libertado ao cancelar. A capacidade separada de bolos personalizados continua a ser revalidada e reservada atomicamente na confirmação após sinal. Se essa capacidade se esgotar após pagamento externo, responder `CAPACITY_LOST_AFTER_PAYMENT`. Não repetir efeitos com retries da Vercel sem chave idempotente: pagamentos usam `Idempotency-Key` obrigatório (UUID) e unicidade por utilizador; criação pública pode usar chave opcional para prevenir duplicados de submissão.
 
 ## Lacunas decididas para o MVP
 
@@ -190,7 +190,7 @@ A pré-verificação de `POST /api/orders` é apenas instantânea e nunca reserv
 3. Pedido para segunda-feira, 2026-11-23, falha `MONDAY_PICKUP`.
 4. Gestora regista sinal de 1 700 cêntimos; transação confirma se ainda houver vaga, saldo passa a 3 900.
 5. Listagem de Produção para o dia mostra o bolo, alergia declarada e alergénios do produto em campos separados.
-6. Com seis itens personalizados já confirmados para a data, `POST /orders` responde `409 CAPACITY_FULL`, sem criar pedido nem código. Se o pedido foi criado quando ainda havia vaga, mas esta desaparece antes da confirmação, a transação após o sinal externo devolve `CAPACITY_LOST_AFTER_PAYMENT` e não cria uma sétima vaga.
+6. Com seis encomendas não canceladas para a data, `POST /orders` responde `409 CAPACITY_FULL`, sem criar pedido nem código. A capacidade separada de bolos personalizados continua a ser verificada ao confirmar; se se esgotar depois de o sinal externo ter sido recebido, a transação devolve `CAPACITY_LOST_AFTER_PAYMENT`.
 7. Cliente acompanha com código; Produção avança cada item até `ready`; Gestora regista restante, saldo zera e marca entregue.
 
 A pré-verificação de capacidade no POST cumpre a recusa do passo 6 quando a data já está cheia sem dar prioridade ou reserva aos pedidos pendentes. A confirmação continua a repetir a contagem atomicamente, pois a capacidade pode mudar entre a criação e o pagamento.

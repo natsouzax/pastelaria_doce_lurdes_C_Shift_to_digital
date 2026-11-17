@@ -1,4 +1,4 @@
-﻿# Decisões de arquitetura
+# Decisões de arquitetura
 
 Este documento regista as decisões atuais e separa o que já está especificado do que continua por resolver. O contrato da API é [docs/api.md](api.md); os fluxos de ecrã estão a ser alinhados na frente de fluxos e experiência.
 
@@ -11,7 +11,8 @@ Este documento regista as decisões atuais e separa o que já está especificado
 | Base de dados | PostgreSQL no Supabase | Modelo relacional com snapshots de preço/unidade e transação segura para a capacidade diária. |
 | Autenticação interna | Supabase Auth para Gestora e Produção | Perfil e estado ativo vêm do registo interno; cada rota valida a sessão e a função no servidor. Ver matriz em `api.md`. |
 | Cliente sem conta | Código de seguimento aleatório, segredo de consulta de alta entropia; armazenar hash e aplicar rate limit | O endpoint público devolve apenas resumo mínimo, sem nome, telefone ou notas internas. |
-| Capacidade de personalizados | Um item por bolo físico; máximo de seis por data; POST faz pré-verificação instantânea sem reserva; confirmar com sinal verifica e reserva atomicamente | A contagem é por item, não por encomenda nem por kg. Pedidos pendentes não ocupam vaga e não recebem promessa de disponibilidade. Canceladas libertam capacidade; as restantes confirmadas continuam a contar. |
+| Limite diário de encomendas | Máximo de seis encomendas não canceladas por data, contando Pendentes; POST bloqueia e verifica atomicamente | Cada pedido ocupa um lugar desde a criação; cancelar liberta-o. |
+| Capacidade de personalizados | Um item por bolo físico; máximo de seis por data; confirmar com sinal verifica e reserva atomicamente | Esta capacidade é distinta do limite de encomendas; canceladas libertam-na. |
 | Pagamento | Registo simulado pela Gestora, em cêntimos, sem gateway/transação real | Sinal é 30% do total da encomenda quando inclui personalizado, arredondado ao euro; saldo é derivado dos pagamentos e reembolsos. |
 | Produção e estados | Produção avança cada item; estados agregados da encomenda são derivados; apenas Gestora entrega | Uma encomenda fica `Pronta` quando todos os itens estão prontos. Transições e permissões estão em `api.md`. |
 | Deploy | Vercel | Alvo de publicação; Docker permanece opcional. |

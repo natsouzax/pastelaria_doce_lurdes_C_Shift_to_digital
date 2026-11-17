@@ -7,13 +7,13 @@ Esta é a base comum para agentes paralelos. Fontes de verdade: dossier do Clien
 - Next.js App Router, TypeScript, Tailwind; SWR apenas para atualização de dados no cliente onde útil.
 - Route Handlers do Next.js em Node.js expõem API REST. Validação, cálculos, estados, capacidade e permissões são do servidor.
 - Supabase: PostgreSQL relacional e Auth para Gestora e Produção. Cliente não cria conta.
-- Vercel é alvo de publicação. Docker é opcional. Nenhuma integração com MB WAY, WhatsApp, Instagram, email ou SMS.
+- Vercel é alvo de publicação. Docker é opcional. Nenhuma integração com MB WAY, Instagram, email ou SMS. O WhatsApp limita-se a uma ligação `wa.me` com a mensagem escrita, aberta pela equipa quando a encomenda fica Pronta; não há API nem envio automático.
 
 ## Dados e regras partilhadas
 
 - `orders` agrupa `order_items`; cada bolo personalizado é um item/ID distinto com peso próprio em kg, mensagem e alergias. Outros produtos podem ter quantidade na unidade do catálogo.
 - `products` têm preço por unidade e antecedência. Cada item guarda preço e unidade aplicados no pedido.
-- Um bolo personalizado consome **uma** das seis vagas da data. `Pendente` não reserva vaga; apenas encomendas confirmadas e estados posteriores, exceto `Cancelada`, contam. `POST /api/orders` faz uma pré-verificação instantânea: se a ocupação confirmada mais os bolos personalizados pedidos exceder seis, rejeita sem criar encomenda/código; caso contrário cria `Pendente` sem garantir ou reservar vaga. Vários pedidos pendentes podem concorrer pelas vagas observadas livres. Ao registar o sinal, a confirmação volta a verificar e reservar capacidade numa transação segura contra concorrência.
+- Cada data aceita no máximo **seis encomendas não canceladas**. O pedido Pendente ocupa lugar desde a criação; cancelar liberta-o. `POST /api/orders` bloqueia a data e verifica o limite na mesma transação, impedindo excesso por pedidos simultâneos. Além disso, um bolo personalizado consome uma vaga da capacidade específica de bolos: até seis bolos personalizados confirmados e estados seguintes por data, revalidados e reservados atomicamente ao registar o sinal.
 - Item de produção: `a_fazer → em_producao → pronto`. A encomenda fica `Em produção` quando pelo menos um item começar e só fica `Pronta` quando **todos** os itens estiverem prontos. Produção não marca `Entregue`.
 - Para personalizado, sinal de 30% do **total da encomenda**, arredondado ao euro; confirmação apenas após sinal registado e vaga disponível. Exemplo: 56 € → 17 € de sinal e 39 € em falta.
 - Valores monetários em cêntimos inteiros; datas de levantamento no fuso Europe/Lisbon; código de seguimento não sequencial.
