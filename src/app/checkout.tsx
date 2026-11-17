@@ -123,7 +123,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
       <span className="code-warning" role="status">{copyMessage || 'Guarde-o agora: só aparece uma vez e não o conseguimos recuperar.'}</span>
     </div>
     <div className="success-grid">
-      <dl className="facts"><div><dt>Estado</dt><dd><Status value={created.status} /></dd></div><div><dt>Levantamento</dt><dd>{dateLabel(new Date(created.pickup_at))}</dd></div><div><dt>Total previsto</dt><dd>{euro(created.total_cents)}</dd></div>{created.deposit_required_cents > 0 && <div><dt>Sinal previsto</dt><dd>{euro(created.deposit_required_cents)}</dd></div>}</dl>
+      <dl className="facts"><div><dt>Estado</dt><dd><Status value={created.status} /></dd></div><div><dt>Levantamento</dt><dd>{dateLabel(new Date(created.pickup_at))}</dd></div><div><dt>Total previsto (IVA incluído)</dt><dd>{euro(created.total_cents)}</dd></div>{created.deposit_required_cents > 0 && <div><dt>Sinal previsto</dt><dd>{euro(created.deposit_required_cents)}</dd></div>}</dl>
       <ol className="next-steps"><li><strong>A Gestora verifica</strong><span>Confirma a disponibilidade para o dia pedido.</span></li><li><strong>Confirmação</strong><span>{created.deposit_required_cents > 0 ? 'Os bolos personalizados ficam confirmados quando a pastelaria registar o sinal.' : 'A Gestora confirma o pedido e avisa se for preciso.'}</span></li><li><strong>Acompanhe</strong><span>Use o código para ver o estado em qualquer altura.</span></li></ol>
     </div>
     <Notice>{created.message}</Notice>
@@ -197,8 +197,8 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
         <aside className="summary" aria-label="Resumo do pedido">
           <h2>Resumo</h2>
           <ul className="summary-lines">{selected.map(({ line, product }) => <li key={line.key}><span>{product.name}<small>{product.is_custom_cake ? weightLabel(line.weight_kg || 0) : `${line.quantity || 0} × ${units[product.unit]}`}</small></span><strong>{euro(lineTotal(line, product))}</strong></li>)}</ul>
-          <dl className="money"><div><dt>Total estimado</dt><dd>{euro(total)}</dd></div>{deposit > 0 && <div><dt>Sinal previsto</dt><dd>{euro(deposit)}</dd></div>}</dl>
-          <p className="summary-note">Valores indicativos: o servidor confirma preço e sinal. Não paga online; o pedido fica pendente até a Gestora confirmar.</p>
+          <dl className="money"><div><dt>Total estimado (IVA incluído)</dt><dd>{euro(total)}</dd></div>{deposit > 0 && <div><dt>Sinal previsto</dt><dd>{euro(deposit)}</dd></div>}</dl>
+          <p className="summary-note">Os preços incluem IVA. Valores indicativos: o servidor confirma preço e sinal. Não paga online; o pedido fica pendente até a Gestora confirmar.</p>
         </aside>
       </form>
     </>}

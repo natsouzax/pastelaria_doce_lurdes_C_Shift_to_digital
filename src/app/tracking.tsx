@@ -45,7 +45,7 @@ function PhoneLookup() {
             <div className="phone-customer-details"><h2>Dados do pedido</h2><p><strong>Cliente:</strong> {selectedOrder.customer_name}</p><p><strong>Telefone:</strong> <a href={`tel:${selectedOrder.customer_phone}`}>{selectedOrder.customer_phone}</a></p>{selectedOrder.notes && <p><strong>Observações:</strong> {selectedOrder.notes}</p>}</div>
           </section>
           <aside className="panel pickup-card"><span className="eyebrow">Levantamento</span><h2>{dateLabel(new Date(selectedOrder.pickup_at))}</h2><p className="pickup-time">{pickupTimeLabel(selectedOrder.pickup_at)} <small>hora de Lisboa</small></p>
-            <dl className="money"><div><dt>Total</dt><dd>{euro(selectedOrder.total_cents)}</dd></div>{selectedOrder.deposit_required_cents > 0 && <div><dt>Sinal previsto</dt><dd>{euro(selectedOrder.deposit_required_cents)}</dd></div>}<div><dt>Pago</dt><dd>{euro(selectedOrder.amount_paid_cents)}</dd></div><div><dt>Por pagar</dt><dd>{euro(selectedOrder.balance_due_cents)}</dd></div></dl>
+            <dl className="money"><div><dt>Total (IVA incluído)</dt><dd>{euro(selectedOrder.total_cents)}</dd></div>{selectedOrder.deposit_required_cents > 0 && <div><dt>Sinal previsto</dt><dd>{euro(selectedOrder.deposit_required_cents)}</dd></div>}<div><dt>Pago</dt><dd>{euro(selectedOrder.amount_paid_cents)}</dd></div><div><dt>Por pagar</dt><dd>{euro(selectedOrder.balance_due_cents)}</dd></div></dl>
           </aside>
         </div>
         <h2 className="tracked-heading">Produtos do pedido</h2>
@@ -97,7 +97,7 @@ export function Tracking({ code, setCode, tracked, error, busy, submit, cancel }
         <div className="tracking-top">
           <div className="panel"><div className="tracking-status"><span className="eyebrow">Estado</span><Status value={tracked.status} /></div><Timeline status={tracked.status} />{tracked.status === 'pending' && <Notice>A Gestora ainda vai verificar o pedido. Até confirmar, não há vaga reservada e <strong>não deve pagar online</strong>.</Notice>}</div>
           <aside className="panel pickup-card"><span className="eyebrow">Levantamento</span><h2>{dateLabel(new Date(tracked.pickup_at))}</h2><p className="pickup-time">{pickupTimeLabel(tracked.pickup_at)} <small>hora de Lisboa</small></p>
-            <dl className="money"><div><dt>Total</dt><dd>{euro(tracked.total_cents)}</dd></div><div><dt>Pago</dt><dd>{euro(tracked.amount_paid_cents)}</dd></div><div><dt>Por pagar</dt><dd>{euro(tracked.balance_due_cents)}</dd></div></dl></aside>
+            <dl className="money"><div><dt>Total (IVA incluído)</dt><dd>{euro(tracked.total_cents)}</dd></div><div><dt>Pago</dt><dd>{euro(tracked.amount_paid_cents)}</dd></div><div><dt>Por pagar</dt><dd>{euro(tracked.balance_due_cents)}</dd></div></dl></aside>
         </div>
         <h2 className="tracked-heading">Os seus produtos</h2>
         <div className="tracked-list">{tracked.items.map((item, index) => <article className="tracked-item" key={index}><div><h3>{item.product_name}</h3><p>{item.weight_kg ? weightLabel(item.weight_kg) : `${item.quantity} × ${units[item.unit]}`}</p>{item.cake_message && <p>Mensagem: “{item.cake_message}”</p>}</div><Status value={item.production_status} /></article>)}</div>
