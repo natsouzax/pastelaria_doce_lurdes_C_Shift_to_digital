@@ -1,6 +1,7 @@
+import Image from 'next/image';
 import { useState } from 'react';
 import type { Product } from '@/lib/api';
-import { categories, categoryOf, euro, leadLabel, units, type Category } from './presentation';
+import { categories, categoryOf, euro, leadLabel, productPhoto, units, type Category } from './presentation';
 import { EmptyState, HeroVisual, Icon, Loading, Notice, type IconName } from './ui';
 
 export function Hero({ onTrack }: { onTrack: () => void }) {
@@ -24,8 +25,10 @@ const iconFor: Record<Category, IconName> = { Bolos: 'cake', Doces: 'sweet', Sal
 
 export function ProductCard({ product, inCart, add }: { product: Product; inCart: number; add: (product: Product) => void }) {
   const category = categoryOf(product);
+  const photo = productPhoto(product);
   return <article className="product reveal">
     <div className="product-top"><span className={`product-icon product-icon--${category.toLowerCase()}`}><Icon name={iconFor[category]} size={24} /></span>{product.is_custom_cake ? <span className="tag tag--gold">Personalizável</span> : <span className="tag">{category}</span>}</div>
+    <div className="product-photo">{photo ? <Image src={photo} alt={`Imagem ilustrativa: ${product.name}`} width={640} height={480} sizes="(max-width: 620px) 100vw, (max-width: 1024px) 50vw, 33vw" /> : <span className="photo-fallback" aria-hidden="true"><Icon name={iconFor[category]} size={36} /></span>}</div>
     <h3>{product.name}</h3>
     <p className="price"><strong>{euro(product.unit_price_cents)}</strong><span>/ {units[product.unit]}</span></p>
     <ul className="product-meta">

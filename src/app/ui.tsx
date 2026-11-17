@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { OrderStatus } from '@/lib/api';
 
 const statusLabels: Record<string, string> = {
@@ -53,13 +54,13 @@ export function Loading({ label, count = 6 }: { label: string; count?: number })
   return <div className="loading" role="status" aria-label={label}><div className="skeleton-grid">{Array.from({ length: count }, (_, index) => <div className="skeleton" key={index} />)}</div></div>;
 }
 
-/** Placeholder do hero. Para usar uma fotografia real (mãos a preparar o bolo, sem rostos), defina o caminho em public/. */
-export const HERO_PHOTO: string | null = null;
+/** Imagem gerada para ilustrar o preparo; não é uma fotografia da pastelaria. */
+export const HERO_PHOTO = '/images/hero.webp';
 
 export function HeroVisual() {
   return <div className="hero-visual">
     <div className="hero-arch">
-      {HERO_PHOTO ? <img src={HERO_PHOTO} alt="Mãos a preparar um bolo na pastelaria Doce Lurdes" /> : <svg viewBox="0 0 480 560" role="img" aria-label="Ilustração de um bolo de dois andares num prato" preserveAspectRatio="xMidYMax slice">
+      {HERO_PHOTO ? <Image src={HERO_PHOTO} alt="Imagem ilustrativa: mãos a decorar um bolo de chocolate" width={900} height={900} priority sizes="(max-width: 620px) 100vw, 460px" /> : <svg viewBox="0 0 480 560" role="img" aria-label="Ilustração de um bolo de dois andares num prato" preserveAspectRatio="xMidYMax slice">
         <path d="M24 560V250a216 216 0 0 1 432 0v310" fill="none" stroke="#c9a661" strokeWidth="1" opacity=".55" />
         <ellipse cx="240" cy="468" rx="178" ry="22" fill="#0a1f38" opacity=".5" />
         <ellipse cx="240" cy="452" rx="170" ry="24" fill="#f3ead8" />
