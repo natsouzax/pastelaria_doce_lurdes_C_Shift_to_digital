@@ -49,7 +49,7 @@ Na única tab “Equipa”, a Gestora encontra as secções internas “Dashboar
 
 5. No detalhe de um pedido personalizado, “Registar sinal” sugere o valor exigido já calculado. A Gestora regista o valor efetivamente recebido e confirma a ação; para o caso demonstrativo são 17 € num total de 56 €. O registo é simulado, não cobra dinheiro.
 6. O backend tenta registar o sinal, revalidar capacidade e confirmar na mesma transação. Em sucesso, o estado passa a `Confirmada`, a vaga é ocupada e o saldo fica 39 €. Se a vaga desaparecer antes de o pagamento externo ter sido recebido, a operação falha com `CAPACITY_FULL` sem registar pagamento. Se o pagamento já tiver sido efetivamente recebido, a interface informa que foi registado, mas a encomenda ficou sem vaga (`CAPACITY_LOST_AFTER_PAYMENT`); bloqueia nova tentativa de pagamento e orienta para reagendamento operacional ou reembolso simulado.
-7. Pedidos sem bolo personalizado são confirmados por ação explícita da Gestora; não exigem sinal pela regra v1. Registar sinal em encomenda sem personalizado é inválido.
+7. Pedidos sem bolo personalizado são confirmados por ação explícita da Gestora; não exigem sinal pela regra v1. Ao confirmar, a Gestora escolhe se recebeu o total, ainda não recebeu ou recebeu um valor personalizado até ao total. Valores pagos e respetivas notas (ex.: dinheiro ou transferência) ficam no histórico. Registar sinal em encomenda sem personalizado é inválido.
 8. Para saldo, a Gestora abre “Registar restante”, vê o montante em falta e regista o valor recebido. A Gestora só pode marcá-lo como `Entregue` depois de registar o pagamento integral.
 
 ### Cancelar e entregar
