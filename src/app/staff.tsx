@@ -111,11 +111,20 @@ export function Staff() {
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<'all' | OrderStatus>('all');
   const [managerSection, setManagerSection] = useState<'dashboard' | 'management' | 'production'>('dashboard');
+  const [focusOrderId, setFocusOrderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
   const [notifyId, setNotifyId] = useState<string | null>(null);
   const paymentKeys = useRef<Record<string, string>>({});
   const authCheck = useRef(0);
+  useEffect(() => {
+    if (managerSection !== 'management' || !focusOrderId || !loaded) return;
+    const card = document.getElementById(`order-${focusOrderId}`);
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card?.setAttribute('tabindex', '-1');
+    card?.focus({ preventScroll: true });
+    setFocusOrderId(null);
+  }, [managerSection, focusOrderId, loaded, orders]);
   const effectiveDate = staffDate || lisbonDateString(new Date());
   const selectedWeekStart = startOfWeek(effectiveDate);
   const orderQueryStart = selectedWeekStart;
@@ -301,6 +310,29 @@ export function Staff() {
   const dashboardOrders = orders.filter(order => order.status !== 'cancelled');
   const pendingOrders = dashboardOrders.filter(order => order.status === 'pending');
   const readyOrders = dashboardOrders.filter(order => order.status === 'ready');
+  const priorityTasks = dashboardOrders.flatMap(order => {
+    const name = order.customer_name?.trim() || 'Cliente';
+    const time = pickupTimeLabel(order.pickup_at);
+    const tasks: Array<{ id: string; order: StaffOrder; title: string; detail: string; priority: number }> = [];
+    if (order.capacity_resolution_required) tasks.push({ id: `${order.id}-capacity`, order, title: 'Resolver falta de vaga', detail: `${name} · sinal registado`, priority: 0 });
+    else if (order.status === 'pending') {
+      const needsDeposit = order.items.some(item => item.weight_kg !== null);
+      tasks.push({ id: `${order.id}-pending`, order, title: needsDeposit ? 'Registar sinal' : 'Confirmar encomenda', detail: `${name} · ${time}`, priority: 1 });
+    }
+    if (order.status === 'ready' && (order.balance_due_cents ?? 0) > 0) tasks.push({ id: `${order.id}-balance`, order, title: 'Cobrar saldo antes do levantamento', detail: `${name} · ${euro(order.balance_due_cents ?? 0)}`, priority: 2 });
+    if (['confirmed', 'in_production'].includes(order.status) && order.items.some(item => item.declared_allergies.length > 0)) {
+      const allergies = [...new Set(order.items.flatMap(item => item.declared_allergies))].join(', ');
+      tasks.push({ id: `${order.id}-allergy`, order, title: 'Rever alergia declarada', detail: `${name} · ${allergies}`, priority: 3 });
+    }
+    return tasks;
+  }).sort((a, b) => a.priority - b.priority || a.order.pickup_at.localeCompare(b.order.pickup_at));
+  const openTask = (order: StaffOrder) => {
+    setStaffDate(dayOf(order));
+    setFilter('all');
+    setSearch(order.customer_name ?? order.customer_phone ?? '');
+    setFocusOrderId(order.id);
+    setManagerSection('management');
+  };
   const dashboardFinancialTotal = dashboardOrders.reduce((sum, order) => sum + (order.total_cents ?? 0), 0);
   const dashboardFinancialPaid = dashboardOrders.reduce((sum, order) => sum + (order.amount_paid_cents ?? 0), 0);
   const dashboardFinancialBalance = dashboardOrders.reduce((sum, order) => sum + (order.balance_due_cents ?? 0), 0);
@@ -382,13 +414,11 @@ export function Staff() {
 
       <div className="dashboard-lower">
         <section className="dashboard-panel" aria-labelledby="dashboard-actions-title">
-          <div className="dashboard-panel-heading"><div><p className="eyebrow">Acompanhar</p><h2 id="dashboard-actions-title">Pontos de atenção</h2></div></div>
-          <ul className="dashboard-attention">
-            <li><span>Pedidos pendentes</span><strong>{pendingOrders.length}</strong></li>
-            <li><span>Prontos com saldo por receber</span><strong>{readyOrders.filter(order => (order.balance_due_cents ?? 0) > 0).length}</strong></li>
-            <li><span>Sem vaga após pagamento</span><strong>{dashboardOrders.filter(order => order.capacity_resolution_required).length}</strong></li>
-          </ul>
-          <button type="button" className="button secondary" onClick={() => { if (pendingOrders[0]) setStaffDate(dayOf(pendingOrders[0])); setFilter('pending'); setManagerSection('management'); }}>Ver pedidos pendentes</button>
+          <div className="dashboard-panel-heading"><div><p className="eyebrow">Acompanhar</p><h2 id="dashboard-actions-title">Ações prioritárias</h2></div><span>{priorityTasks.length} {priorityTasks.length === 1 ? 'pendente' : 'pendentes'}</span></div>
+          {priorityTasks.length ? <ul className="dashboard-task-list">{priorityTasks.slice(0, 8).map(task => <li key={task.id}>
+            <div><strong>{task.title}</strong><span>{task.detail}</span></div>
+            <button type="button" className="text-link" onClick={() => openTask(task.order)}>Abrir encomenda <span aria-hidden="true">→</span></button>
+          </li>)}</ul> : <p className="muted">Não há ações prioritárias nesta semana.</p>}
         </section>
 
         <section className="dashboard-panel" aria-labelledby="dashboard-products-title">
@@ -418,7 +448,7 @@ export function Staff() {
       const balance = order.balance_due_cents ?? 0;
       const paid = order.amount_paid_cents ?? 0;
       const hasCake = order.items.some(item => item.weight_kg !== null);
-      return <article className="order-card" key={order.id}>
+      return <article className="order-card" id={`order-${order.id}`} key={order.id}>
         <header className="order-head">
           <div className="order-time"><strong>{pickupTimeLabel(order.pickup_at)}</strong></div>
           <div className="order-who">{manager && <h2>{order.customer_name ?? 'Cliente'}</h2>}{manager && order.customer_phone && <a href={`tel:${order.customer_phone}`}><Icon name="phone" size={15} />{order.customer_phone}</a>}{!manager && <h2>Encomenda #{order.id.slice(0, 6).toUpperCase()}</h2>}</div>
