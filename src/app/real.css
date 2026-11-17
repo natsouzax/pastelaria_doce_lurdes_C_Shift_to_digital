@@ -397,21 +397,21 @@ input[aria-invalid="true"] { border-color: var(--danger); }
   .tracking-top { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 720px) {
-  body { font-size: 15px; padding-bottom: 76px; }
-  .site-header { justify-content: center; }
-  .logo-sub { display: none; }
-  .main-nav { position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; justify-content: space-around; gap: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .97); border-top: 1px solid var(--line); backdrop-filter: blur(14px); }
-  .nav-item { flex: 1; flex-direction: column; gap: 2px; padding: 6px 4px; border-radius: 12px; font-size: 12px; min-height: 52px; justify-content: center; }
-  .staff-management-tools { grid-template-columns: 1fr; }
-  .staff-tabs button { max-width: none; }
-  .nav-item--cart { order: 0; margin: 0; border-color: transparent; }
-  .nav-item--cart.active { background: var(--cream); color: var(--blue); }
-  .nav-badge { position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; font-size: 10.5px; }
 @media (max-width: 860px) {
   .product-grid, .skeleton-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+@media (max-width: 720px) {
+  body { font-size: 15px; padding-bottom: 76px; }
+  .staff-management-tools { grid-template-columns: 1fr; }
+  .staff-tabs button { max-width: none; }
+  .site-header { justify-content: center; }
+  .logo-sub { display: none; }
+  .main-nav { position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; justify-content: space-around; gap: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .97); border-top: 1px solid var(--line); backdrop-filter: blur(14px); }
+  .nav-item { flex: 1; flex-direction: column; gap: 2px; padding: 6px 4px; border-radius: 12px; font-size: 12px; min-height: 52px; justify-content: center; }
+  .nav-item--cart { order: 0; margin: 0; border-color: transparent; }
+  .nav-item--cart.active { background: var(--cream); color: var(--blue); }
+  .nav-badge { position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; font-size: 10.5px; }
   .hero { padding-top: 24px; gap: 32px; }
   .hero-arch { aspect-ratio: auto; height: 280px; }
   .hero-arch img { object-position: center bottom; }
