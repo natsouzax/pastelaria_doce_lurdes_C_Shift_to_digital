@@ -3,7 +3,7 @@ export type OrderStatus = 'pending'|'confirmed'|'in_production'|'ready'|'deliver
 export type ItemStatus = 'to_do'|'in_progress'|'ready';
 export type OrderItem = { id:string; product_name:string; quantity:number; unit:Product['unit']; weight_kg:number|null; cake_message:string|null; product_allergens:string[]; declared_allergies:string[]; production_notes:string|null; production_status:ItemStatus };
 export type StaffPayment = { id:string; kind:'deposit'|'balance'|'refund'; amount_cents:number; recorded_at:string; note:string|null };
-export type StaffOrder = { id:string; status:OrderStatus; pickup_at:string; items:OrderItem[]; customer_name?:string; customer_phone?:string; notes?:string|null; total_cents?:number; deposit_required_cents?:number; amount_paid_cents?:number; balance_due_cents?:number; payments?:StaffPayment[]; capacity_resolution_required?:boolean };
+export type StaffOrder = { id:string; status:OrderStatus; pickup_at:string; pickup_date:string; items:OrderItem[]; customer_name?:string; customer_phone?:string; notes?:string|null; total_cents?:number; deposit_required_cents?:number; amount_paid_cents?:number; balance_due_cents?:number; payments?:StaffPayment[]; capacity_resolution_required?:boolean };
 export type TrackedOrder = { status:OrderStatus; pickup_at:string; total_cents:number; amount_paid_cents:number; balance_due_cents:number; can_cancel:boolean; items:Pick<OrderItem,'product_name'|'quantity'|'unit'|'weight_kg'|'cake_message'|'production_status'>[] };
 export type PhoneOrder = { status:OrderStatus; pickup_at:string; items:Pick<OrderItem,'product_name'|'quantity'|'unit'|'weight_kg'|'production_status'>[] };
 export type NewOrder = { customer:{name:string;phone:string}; pickup_at:string; notes:string|null; items:Array<{product_id:string;quantity:number;weight_kg?:number;cake_message?:string|null;declared_allergies?:string[];production_notes?:string|null}> };
@@ -35,7 +35,9 @@ export const api = {
   cancelTracked:(code:string)=>request<{status:'cancelled'}>(`/api/orders/track/${encodeURIComponent(code.trim())}/cancel`,{method:'POST'}),
   ordersByPhone:(phone:string)=>request<{data:PhoneOrder[]}>('/api/orders/lookup',{method:'POST',body:JSON.stringify({phone:phone.trim()})}).then(result=>result.data),
   me:()=>request<StaffMe>('/api/staff/me'),
-  staffOrders:(date:string)=>allPages<StaffOrder>(`/api/staff/orders?pickup_date=${encodeURIComponent(date)}`),
+  staffOrders:(date:string,endDate?:string)=>allPages<StaffOrder>(endDate
+    ? `/api/staff/orders?pickup_date_from=${encodeURIComponent(date)}&pickup_date_to=${encodeURIComponent(endDate)}`
+    : `/api/staff/orders?pickup_date=${encodeURIComponent(date)}`),
   payment:(id:string,kind:'deposit'|'balance'|'refund',amount_cents:number,external_payment_received:boolean,key:string)=>request<{order:StaffOrder}>(`/api/staff/orders/${id}/payments`,{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({kind,amount_cents,external_payment_received,note:null})}),
   itemStatus:(id:string,status:'in_progress'|'ready')=>request<{item:{id:string;production_status:ItemStatus};order:{id:string;status:OrderStatus}}>(`/api/staff/order-items/${id}/status`,{method:'PATCH',body:JSON.stringify({status})}),
   orderStatus:(id:string,status:'confirmed'|'delivered'|'cancelled',reason?:string)=>request<{id:string;status:OrderStatus}>(`/api/staff/orders/${id}/status`,{method:'PATCH',body:JSON.stringify(status==='cancelled'?{status,reason}:{status})}),

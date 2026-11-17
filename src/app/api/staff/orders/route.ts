@@ -11,10 +11,22 @@ export async function GET(request: Request) {
   try {
     const staff = await requireStaff(['manager', 'production']);
     const query = new URL(request.url).searchParams;
-    for (const key of query.keys()) if (!['pickup_date', 'status', 'limit', 'cursor'].includes(key)) throw new ApiError(400, 'VALIDATION_ERROR', `Filtro não suportado: ${key}.`);
+    for (const key of query.keys()) if (!['pickup_date', 'pickup_date_from', 'pickup_date_to', 'status', 'limit', 'cursor'].includes(key)) throw new ApiError(400, 'VALIDATION_ERROR', `Filtro não suportado: ${key}.`);
     const date = query.get('pickup_date');
-    const parsedDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : null;
-    if (!date || !parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date) throw new ApiError(400, 'VALIDATION_ERROR', 'pickup_date é obrigatório (YYYY-MM-DD).');
+    const dateFrom = query.get('pickup_date_from');
+    const dateTo = query.get('pickup_date_to');
+    const validDate = (value: string | null) => {
+      if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    };
+    const rangeRequested = dateFrom !== null || dateTo !== null;
+    if (rangeRequested) {
+      if (date !== null || !validDate(dateFrom) || !validDate(dateTo)) throw new ApiError(400, 'VALIDATION_ERROR', 'Indique pickup_date_from e pickup_date_to válidos.');
+      const days = (Date.parse(`${dateTo}T00:00:00Z`) - Date.parse(`${dateFrom}T00:00:00Z`)) / 86_400_000;
+      if (days !== 6) throw new ApiError(400, 'VALIDATION_ERROR', 'O intervalo deve corresponder a sete dias.');
+      if (staff.role !== 'manager') throw new ApiError(403, 'FORBIDDEN', 'A vista semanal está disponível apenas para a Gestora.');
+    } else if (!validDate(date)) throw new ApiError(400, 'VALIDATION_ERROR', 'pickup_date é obrigatório (YYYY-MM-DD).');
     const requestedStatus = query.get('status');
     const statuses = ['pending', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled'];
     if (requestedStatus && !statuses.includes(requestedStatus)) throw new ApiError(400, 'VALIDATION_ERROR', 'status inválido.');
@@ -40,7 +52,8 @@ export async function GET(request: Request) {
           'production_status', i.production_status
         ) order by i.created_at, i.id),'[]'::jsonb) from public.order_items i join public.products p on p.id=i.product_id where i.order_id=o.id) as items
       from public.orders o
-      where o.pickup_date = ${date}::date
+      where ((${rangeRequested}::boolean and o.pickup_date between ${dateFrom}::date and ${dateTo}::date)
+        or (not ${rangeRequested}::boolean and o.pickup_date = ${date}::date))
         and (${requestedStatus}::text is null or o.status = ${requestedStatus}::public.order_status)
         and (${staff.role === 'production'}::boolean = false or o.status in ('confirmed','in_production','ready'))
         and (${cursorDate}::timestamptz is null or (o.pickup_at,o.id) > (${cursorDate}::timestamptz,${cursorId}::uuid))
@@ -48,7 +61,7 @@ export async function GET(request: Request) {
     const more = rows.length > limit;
     const page = rows.slice(0, limit).map(row => {
       const amountPaid = Number(row.amount_paid_cents);
-      const base = { id: row.id, status: row.status, pickup_at: row.pickup_at, items: row.items,
+      const base = { id: row.id, status: row.status, pickup_at: row.pickup_at, pickup_date: row.pickup_date, items: row.items,
         ...(staff.role === 'manager' ? { customer_name: row.customer_name, customer_phone: row.customer_phone, notes: row.notes,
           source: row.source, total_cents: Number(row.total_cents), amount_paid_cents: amountPaid,
           deposit_required_cents: Number(row.deposit_required_cents),

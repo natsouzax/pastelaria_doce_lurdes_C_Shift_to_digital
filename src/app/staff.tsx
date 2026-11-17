@@ -29,6 +29,18 @@ function ConfirmDialog({ pending, busy, onCancel, onConfirm }: { pending: Pendin
 }
 
 const shiftDay = (date: string, days: number) => { const day = new Date(`${date}T12:00:00Z`); day.setUTCDate(day.getUTCDate() + days); return day.toISOString().slice(0, 10); };
+const startOfWeek = (date: string) => shiftDay(date, -((new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7));
+const weekDayLabel = (date: string) => new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', weekday: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00Z`));
+const weekRangeLabel = (start: string) => {
+  const end = shiftDay(start, 6);
+  const month = new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon', month: 'short' });
+  const startDate = new Date(`${start}T12:00:00Z`);
+  const endDate = new Date(`${end}T12:00:00Z`);
+  const sameMonth = startDate.getUTCMonth() === endDate.getUTCMonth();
+  return sameMonth
+    ? `${startDate.getUTCDate()}–${endDate.getUTCDate()} ${month.format(endDate)} ${endDate.getUTCFullYear()}`
+    : `${startDate.getUTCDate()} ${month.format(startDate)} – ${endDate.getUTCDate()} ${month.format(endDate)} ${endDate.getUTCFullYear()}`;
+};
 const amountLabel = (item: StaffOrder['items'][number]) => item.weight_kg ? `${item.weight_kg} kg` : `${item.quantity} × ${units[item.unit]}`;
 const filters: Array<{ value: 'all' | OrderStatus; label: string }> = [{ value: 'all', label: 'Todas' }, { value: 'pending', label: 'Pendentes' }, { value: 'confirmed', label: 'Confirmadas' }, { value: 'in_production', label: 'Em produção' }, { value: 'ready', label: 'Prontas' }, { value: 'delivered', label: 'Entregues' }, { value: 'cancelled', label: 'Canceladas' }];
 
@@ -48,11 +60,14 @@ export function Staff() {
   const [search, setSearch] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
   const paymentKeys = useRef<Record<string, string>>({});
+  const effectiveDate = staffDate || lisbonDateString(new Date());
+  const selectedWeekStart = startOfWeek(effectiveDate);
+  const orderQueryStart = role === 'manager' ? selectedWeekStart : effectiveDate;
 
-  const loadOrders = useCallback(async (date: string) => {
+  const loadOrders = useCallback(async (date: string, endDate?: string) => {
     try {
       setStaffError('');
-      setOrders(await api.staffOrders(date));
+      setOrders(await api.staffOrders(date, endDate));
     } catch (error) {
       setStaffError(describeError(error).message);
       setOrders([]);
@@ -85,11 +100,12 @@ export function Staff() {
 
   useEffect(() => {
     if (!role) return;
-    const date = staffDate || lisbonDateString(new Date());
+    const date = effectiveDate;
     if (!staffDate) setStaffDate(date);
+    const week = selectedWeekStart;
     setLoaded(false);
-    void loadOrders(date);
-  }, [role, staffDate, loadOrders]);
+    void loadOrders(role === 'manager' ? week : date, role === 'manager' ? shiftDay(week, 6) : undefined);
+  }, [role, orderQueryStart, loadOrders]);
 
   async function signIn(event: React.FormEvent) {
     event.preventDefault();
@@ -119,7 +135,9 @@ export function Staff() {
       const detail = error instanceof ApiFailure && error.paymentRecorded ? ' O sinal foi registado; não repita o pagamento.' : '';
       setStaffError(describeError(error).message + detail);
     } finally {
-      await loadOrders(staffDate);
+      const date = staffDate || lisbonDateString(new Date());
+      const week = startOfWeek(date);
+      await loadOrders(role === 'manager' ? week : date, role === 'manager' ? shiftDay(week, 6) : undefined);
       setStaffBusy(false);
       setPending(null);
     }
@@ -160,14 +178,17 @@ export function Staff() {
 
   const manager = role === 'manager';
   const productionView = !manager || managerSection === 'production';
-  const sorted = [...orders].sort((a, b) => a.pickup_at.localeCompare(b.pickup_at));
+  const selectedDate = effectiveDate;
+  const selectedWeek = selectedWeekStart;
+  const dayOrders = orders.filter(order => order.pickup_date === selectedDate);
+  const sorted = [...dayOrders].sort((a, b) => a.pickup_at.localeCompare(b.pickup_at));
   const productionOrders = sorted.filter(order => ['confirmed', 'in_production', 'ready'].includes(order.status));
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-PT');
   const managementOrders = sorted.filter(order => (filter === 'all' || order.status === filter)
     && (!normalizedSearch || [order.customer_name ?? '', order.customer_phone ?? ''].join(' ').toLocaleLowerCase('pt-PT').includes(normalizedSearch)));
   const visible = productionView ? productionOrders : managementOrders;
   const productionItems = productionOrders.flatMap(order => order.items);
-  const count = (status: OrderStatus) => orders.filter(order => order.status === status).length;
+  const count = (status: OrderStatus) => dayOrders.filter(order => order.status === status).length;
   const itemCount = (status: ItemStatus) => productionItems.filter(item => item.production_status === status).length;
   const financialOrders = sorted.filter(order => order.status !== 'cancelled');
   const financialTotal = financialOrders.reduce((sum, order) => sum + (order.total_cents ?? 0), 0);
@@ -186,18 +207,27 @@ export function Staff() {
     </div>}
 
     <div className="staff-toolbar">
-      <div className="day-nav" role="group" aria-label="Escolher dia de levantamento">
-        <button type="button" className="icon-button" onClick={() => setStaffDate(shiftDay(staffDate, -1))} aria-label="Dia anterior"><Icon name="back" size={18} /></button>
-        <label className="day-label"><span className="sr-only">Dia de levantamento</span><Icon name="calendar" size={18} /><strong>{staffDate ? dateLabel(new Date(`${staffDate}T12:00:00Z`)) : '…'}</strong><input type="date" value={staffDate} onChange={event => event.target.value && setStaffDate(event.target.value)} /></label>
-        <button type="button" className="icon-button" onClick={() => setStaffDate(shiftDay(staffDate, 1))} aria-label="Dia seguinte"><Icon name="arrow" size={18} /></button>
+      <div className="day-nav" role="group" aria-label={manager && !productionView ? 'Escolher semana de levantamento' : 'Escolher dia de levantamento'}>
+        <button type="button" className="icon-button" onClick={() => setStaffDate(shiftDay(manager && !productionView ? selectedWeek : selectedDate, manager && !productionView ? -7 : -1))} aria-label={manager && !productionView ? 'Semana anterior' : 'Dia anterior'}><Icon name="back" size={18} /></button>
+        <label className="day-label"><span className="sr-only">Dia de levantamento</span><Icon name="calendar" size={18} /><strong>{manager && !productionView ? `Semana de ${weekRangeLabel(selectedWeek)}` : dateLabel(new Date(`${selectedDate}T12:00:00Z`))}</strong><input type="date" value={selectedDate} onChange={event => event.target.value && setStaffDate(event.target.value)} /></label>
+        <button type="button" className="icon-button" onClick={() => setStaffDate(shiftDay(manager && !productionView ? selectedWeek : selectedDate, manager && !productionView ? 7 : 1))} aria-label={manager && !productionView ? 'Semana seguinte' : 'Dia seguinte'}><Icon name="arrow" size={18} /></button>
       </div>
-      <button type="button" className="button secondary" disabled={staffBusy} onClick={() => void loadOrders(staffDate)}>{staffBusy ? 'A atualizar…' : 'Atualizar'}</button>
+      <button type="button" className="button secondary" disabled={staffBusy} onClick={() => void loadOrders(role === 'manager' ? selectedWeek : selectedDate, role === 'manager' ? shiftDay(selectedWeek, 6) : undefined)}>{staffBusy ? 'A atualizar…' : 'Atualizar'}</button>
     </div>
+
+    {manager && !productionView && <div className="staff-week" role="group" aria-label="Dias da semana, com contagem de encomendas">
+      {Array.from({ length: 7 }, (_, index) => shiftDay(selectedWeek, index)).map(date => {
+        const dayCount = orders.filter(order => order.pickup_date === date && order.status !== 'cancelled').length;
+        return <button type="button" key={date} className="staff-week-day" aria-pressed={selectedDate === date} onClick={() => setStaffDate(date)}>
+          <span>{weekDayLabel(date)}</span><strong>{dayCount}</strong><small>{dayCount === 1 ? 'pedido' : 'pedidos'}</small>
+        </button>;
+      })}
+    </div>}
 
     {loaded && manager && !productionView && <>
       <dl className="tiles"><div><dt>Total em encomendas</dt><dd>{euro(financialTotal)}</dd></div><div><dt>Registado como pago</dt><dd>{euro(financialPaid)}</dd></div><div><dt>Por receber</dt><dd>{euro(financialBalance)}</dd></div></dl>
       <div className="staff-management-tools">
-        <div className="filters scroll-x" role="group" aria-label="Filtrar por estado">{filters.map(({ value, label }) => { const total = value === 'all' ? orders.length : count(value); return total > 0 || value === 'all' ? <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{total}</span></button> : null; })}</div>
+        <div className="filters scroll-x" role="group" aria-label="Filtrar por estado">{filters.map(({ value, label }) => { const total = value === 'all' ? dayOrders.length : count(value); return total > 0 || value === 'all' ? <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{total}</span></button> : null; })}</div>
         <label className="staff-search"><span className="sr-only">Pesquisar por nome ou telefone</span><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Pesquisar nome ou telefone" /></label>
       </div>
     </>}
@@ -206,7 +236,7 @@ export function Staff() {
 
     {staffError && <Notice tone="error">{staffError}</Notice>}
     {!loaded && <Loading label="A carregar encomendas…" count={3} />}
-    {loaded && !visible.length && !staffError && <EmptyState title={productionView ? 'Sem encomendas em produção' : orders.length ? 'Nenhuma encomenda corresponde aos filtros' : 'Sem encomendas para este dia'}>{productionView ? 'Só aparecem encomendas confirmadas, em produção ou prontas.' : orders.length ? 'Altere o estado ou a pesquisa.' : 'Escolha outro dia de levantamento ou atualize a lista.'}</EmptyState>}
+    {loaded && !visible.length && !staffError && <EmptyState title={productionView ? 'Sem encomendas em produção' : dayOrders.length ? 'Nenhuma encomenda corresponde aos filtros' : 'Sem levantamentos neste dia'}>{productionView ? 'Só aparecem encomendas confirmadas, em produção ou prontas.' : dayOrders.length ? 'Altere o estado ou a pesquisa.' : manager ? 'Escolha outro dia na semana ou avance para outra semana.' : 'Escolha outro dia de levantamento ou atualize a lista.'}</EmptyState>}
 
     {loaded && visible.length > 0 && <div className="order-list">{visible.map(order => {
       const managementView = !productionView;
