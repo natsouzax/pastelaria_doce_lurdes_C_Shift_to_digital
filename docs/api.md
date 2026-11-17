@@ -100,6 +100,19 @@ Para item personalizado, `quantity` é sempre 1 e `weight_kg` obrigatório. Item
 
 Código no segmento URL; responder `200` com `status`, `pickup_at`, resumo de itens (nome snapshot, quantidade/peso, mensagem do bolo, estado por item), total, pago e saldo. Não incluir nome, telefone, notas internas, ID, utilizador, alergias declaradas completas ou dados de pagamentos. Para evitar enumeração, respostas iguais `404 NOT_FOUND` para inexistente/inválido; aplicar rate limit por IP e por hash do código, resposta `429` quando excedido, sem revelar se código existe.
 
+### Autorização da área interna
+
+O papel nunca vem do browser. Cada operação interna chama `requireStaff`, que valida a sessão com Supabase Auth `getUser()` no servidor e consulta `staff_profiles` pelo `user_id` autenticado; apenas perfis `active` podem prosseguir. `GET /api/staff/me` devolve o papel validado para a interface mostrar as secções adequadas. Enviar ou alterar um campo `role` no browser não concede permissões.
+
+| Operação | Gestora (`manager`) | Produção (`production`) |
+| --- | --- | --- |
+| `GET /api/staff/me` e `GET /api/staff/orders` | Permitido; lista inclui contacto e dados financeiros | Permitido; só encomendas confirmadas/em produção/prontas, sem contacto nem dados financeiros |
+| `PATCH /api/staff/order-items/{id}/status` | Permitido | Permitido |
+| `PATCH /api/staff/orders/{id}/status` | Permitido | `403 FORBIDDEN` |
+| `POST /api/staff/orders/{id}/payments` | Permitido | `403 FORBIDDEN` |
+
+As rotas de pagamento e estado da encomenda continuam exclusivas da Gestora, exigem `assertSameOrigin` e a rota de pagamentos exige `Idempotency-Key`. Nunca enviar `service_role` ao cliente.
+
 ### `GET /api/staff/orders` — Gestora ou Produção
 
 Query: `pickup_date` obrigatório (`YYYY-MM-DD` em Europe/Lisbon), `status` opcional, `limit`, `cursor`. `manager` vê dados de contacto, origem, pagamentos e ações; `production` vê apenas encomendas confirmadas e estados seguintes, itens, alergénios de catálogo, alergias declaradas, mensagem e notas de produção. Produção não recebe telefone, pagamentos ou notas gerais do cliente. Resposta `200`: `{ "data": [ { "id", "status", "pickup_at", "customer_name" (apenas gestora), "items": [{"id","product_name","quantity","unit","weight_kg","cake_message","product_allergens","declared_allergies","production_notes","production_status"}], "total_cents", "amount_paid_cents", "balance_due_cents" (financeiro apenas Gestora) } ], "next_cursor": null }`.
@@ -116,9 +129,9 @@ Ao receber sinal personalizado, guardar pagamento e tentar na mesma transação 
 
 Se o pagamento externo já foi recebido, mas a vaga desapareceu, registar o sinal mantendo estado `pending`, `capacity_reserved:false`, `capacity_resolution_required:true`; responder `409 CAPACITY_LOST_AFTER_PAYMENT` com `payment_recorded:true` e ações recomendadas `reschedule_or_refund`. Não pedir à interface para repetir pagamento. Gestora resolve por operação de reembolso simulada, ou altera data numa futura rota de edição (fora deste contrato); até essa alteração existir, esta exceção deve ser resolvida operacionalmente e não pode ser confirmada manualmente. O frontend deve verificar a agenda com a Gestora antes de instruir o cliente a pagar.
 
-### `PATCH /api/staff/order-items/{id}/status` — Produção
+### `PATCH /api/staff/order-items/{id}/status` — Gestora ou Produção
 
-Corpo `{"status":"in_progress"}` ou `{"status":"ready"}`. Item deve pertencer a encomenda `confirmed` ou `in_production`; estado apenas avança um passo. Operação atualiza item e estado agregado da encomenda numa transação. Resposta `200`: `{ "item": {"id","production_status"}, "order": {"id","status"} }`. Produção não pode marcar `delivered`, cancelar, editar pagamentos ou mudar dados do cliente.
+Corpo `{"status":"in_progress"}` ou `{"status":"ready"}`. Item deve pertencer a encomenda `confirmed` ou `in_production`; estado apenas avança um passo. Operação atualiza item e estado agregado da encomenda na mesma transação. Gestora e Produção podem usar esta rota. Resposta `200`: `{ "item": {"id","production_status"}, "order": {"id","status"} }`. Produção continua proibida de marcar `delivered`, cancelar, editar pagamentos ou mudar dados do cliente.
 
 ### `PATCH /api/staff/orders/{id}/status` — Gestora
 

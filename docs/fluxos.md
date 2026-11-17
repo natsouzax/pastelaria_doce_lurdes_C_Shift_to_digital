@@ -23,11 +23,24 @@ Este documento descreve como Cliente, Gestora e Produção percorrem o MVP, com 
 
 Se a capacidade já estiver esgotada ao submeter, a criação falha com `CAPACITY_FULL`; o Cliente escolhe outra data e envia novamente. Se um pedido aceite ficar Pendente e a capacidade se esgotar antes de registar o sinal, a nova tentativa de confirmação com `external_payment_received:false` falha sem guardar pagamento e sem reservar vaga; a Gestora orienta para uma nova data. A alteração de data não existe na API atual, por isso a equipa cancela o Pendente e pede ao Cliente que crie outro pedido. Se o sinal externo já tiver sido recebido quando a capacidade se perder, não se pede novo pagamento: a Gestora vê `CAPACITY_LOST_AFTER_PAYMENT` e encaminha para reagendamento operacional ou reembolso simulado.
 
+## Permissões e navegação da área Equipa
+
+Há uma única entrada “Equipa” em `src/app/page.tsx` e não se criam rotas adicionais. Depois de autenticar, o cliente lê `GET /api/staff/me`; o papel validado pelo servidor determina a interface:
+
+| Papel | Interface | Operações autorizadas |
+| --- | --- | --- |
+| Gestora (`manager`) | Alterna internamente entre “Gestão” e “Produção” na mesma página | Todas as ações de encomenda e pagamento, mais iniciar e concluir itens de produção |
+| Produção (`production`) | Vê apenas “Produção”; não recebe a navegação nem a vista de Gestão | Consulta de dados necessários à produção e transições de item, sem dados de contacto/financeiros |
+
+O valor de papel do browser serve apenas para apresentar a secção. Cada API interna volta a validar a sessão através de Supabase Auth `getUser()` e consulta `staff_profiles.active` e `role` pelo `user_id` autenticado. Assim, uma chamada direta de Produção às rotas de pagamentos ou estado geral da encomenda recebe `403 FORBIDDEN`.
+
 ## Percurso da Gestora no telemóvel
+
+Na única tab “Equipa”, a Gestora encontra as secções internas “Gestão” e “Produção”. A lista de encomendas é carregada uma vez por data e partilhada entre ambas; ações concluídas atualizam a mesma lista.
 
 ### Pedidos e disponibilidade
 
-1. A Gestora entra pela autenticação interna e abre o painel “Pedidos”. O ecrã inicial prioriza pedidos `Pendente`; filtros rápidos levam a Confirmados, Em produção, Prontos e Cancelados.
+1. A Gestora entra pela autenticação interna e abre a secção “Gestão” dentro da tab única “Equipa”. A lista prioriza pedidos `Pendente`; filtros rápidos levam a Confirmados, Em produção, Prontos e Cancelados.
 2. Cada cartão de pedido mostra levantamento, nome/contacto, estado, itens, total, sinal exigido, valor pago e saldo. Ações disponíveis dependem do estado e da resposta da API.
 3. A vista “Agenda” agrupa por data e mostra ocupação de bolos personalizados como número de itens físicos confirmados sobre seis. Pedidos Pendentes aparecem numa lista separada e não incrementam ocupação. O valor mostrado é indicativo e sujeito à confirmação atómica no servidor.
 4. Antes de pedir ao Cliente que pague o sinal, a Gestora verifica a agenda. O `POST /api/orders` já recusou uma data cheia quando o pedido foi criado, mas um Pendente não reserva a vaga; outra confirmação pode ocupá-la entretanto. A agenda é indicativa, e a confirmação com sinal revalida capacidade atomicamente. A interface não deve apresentar a aceitação do pedido Pendente como garantia de vaga.
@@ -48,7 +61,7 @@ Se a capacidade já estiver esgotada ao submeter, a criação falha com `CAPACIT
 
 ## Percurso da Produção no tablet
 
-1. A Produção autentica-se e escolhe uma data na agenda diária. A lista inclui apenas encomendas Confirmadas e estados seguintes, agrupadas por dia e ordenadas pela hora de levantamento.
+1. A Produção autentica-se e escolhe uma data na secção “Produção” da tab “Equipa”. A lista inclui apenas encomendas Confirmadas e estados seguintes, agrupadas por dia e ordenadas pela hora de levantamento. A Gestora chega à mesma vista pelo seu separador interno “Produção”.
 2. Cada encomenda expande-se para cartões por item. Em cada bolo, alergias declaradas pelo Cliente e alergénios do produto surgem em blocos separados e com destaque visual. Mensagem do bolo e notas de produção também ficam visíveis junto do item a que pertencem.
 3. Em cada cartão, a Produção avança `A fazer` → `Em produção` → `Pronto`, uma ação por vez. A ação afeta apenas aquele item. Ao começar o primeiro item, o estado agregado torna-se `Em produção`.
 4. O estado agregado só passa a `Pronta` quando todos os itens da encomenda estiverem `Pronto`; itens já prontos mantêm o estado enquanto os outros avançam. A Produção não regista pagamentos, não cancela e não marca Entregue.
