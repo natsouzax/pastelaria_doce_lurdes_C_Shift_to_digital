@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { OrderStatus } from '@/lib/api';
 
 const statusLabels: Record<string, string> = {
@@ -53,27 +54,13 @@ export function Loading({ label, count = 6 }: { label: string; count?: number })
   return <div className="loading" role="status" aria-label={label}><div className="skeleton-grid">{Array.from({ length: count }, (_, index) => <div className="skeleton" key={index} />)}</div></div>;
 }
 
-/** Placeholder do hero. Para usar uma fotografia real (mãos a preparar o bolo, sem rostos), defina o caminho em public/. */
-export const HERO_PHOTO: string | null = null;
+/** Imagem gerada para ilustrar o preparo; não é uma fotografia da pastelaria. */
+export const HERO_PHOTO = '/images/hero.webp';
 
 export function HeroVisual() {
   return <div className="hero-visual">
     <div className="hero-arch">
-      {HERO_PHOTO ? <img src={HERO_PHOTO} alt="Mãos a preparar um bolo na pastelaria Doce Lurdes" /> : <svg viewBox="0 0 480 560" role="img" aria-label="Ilustração de um bolo de dois andares num prato" preserveAspectRatio="xMidYMax slice">
-        <path d="M24 560V250a216 216 0 0 1 432 0v310" fill="none" stroke="#c9a661" strokeWidth="1" opacity=".55" />
-        <ellipse cx="240" cy="468" rx="178" ry="22" fill="#0a1f38" opacity=".5" />
-        <ellipse cx="240" cy="452" rx="170" ry="24" fill="#f3ead8" />
-        <ellipse cx="240" cy="446" rx="146" ry="17" fill="#fff" />
-        <rect x="132" y="350" width="216" height="92" rx="12" fill="#fff" />
-        <rect x="132" y="384" width="216" height="8" fill="#c9a661" opacity=".85" />
-        <path d="M132 362c0-6 6-12 12-12h192c6 0 12 6 12 12v6c-14 12-26 4-40 12-14 8-26-2-42 6-16-8-26 2-42-6-14-8-26 0-40-12Z" fill="#f8f2e6" />
-        <rect x="170" y="280" width="140" height="72" rx="12" fill="#fbf5e9" />
-        <rect x="170" y="312" width="140" height="6" fill="#c9a661" opacity=".85" />
-        <path d="M170 292c0-6 5-12 11-12h118c6 0 11 6 11 12v4c-12 10-22 3-34 9-12 6-20-2-36 4-16-6-24 2-36-4-12-6-22 1-34-9Z" fill="#fff" />
-        <circle cx="240" cy="262" r="11" fill="#b5524a" /><circle cx="220" cy="268" r="8" fill="#b5524a" /><circle cx="260" cy="268" r="8" fill="#b5524a" />
-        <path d="M240 252c0-12 6-20 14-24M240 252c0-10-5-17-12-21" stroke="#c9a661" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <circle cx="98" cy="196" r="2.5" fill="#c9a661" /><circle cx="388" cy="150" r="2" fill="#c9a661" /><path d="M392 252v14m-7-7h14" stroke="#c9a661" strokeWidth="2" strokeLinecap="round" />
-      </svg>}
+      <Image src={HERO_PHOTO} alt="Imagem ilustrativa: mãos a decorar um bolo de chocolate" width={900} height={900} priority sizes="(max-width: 620px) 100vw, 460px" />
     </div>
     <div className="hero-card" aria-hidden="true"><span className="hero-card-icon"><Icon name="cake" size={22} /></span><div><strong>Bolos personalizados</strong><span>Peso, mensagem e alergias à medida</span></div></div>
     <div className="hero-seal" aria-hidden="true"><span>Feito</span><em>à mão</em></div>

@@ -42,3 +42,16 @@ export function describeError(error: unknown): Problem {
 }
 
 export const pickupProblems = ['CAPACITY_FULL', 'PICKUP_TOO_SOON', 'MONDAY_PICKUP'];
+
+/** These are illustrative images. Unknown products intentionally have no image. */
+export function productPhoto(product: Pick<Product, 'name'>): string | null {
+  const name = product.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const images: [string, string][] = [
+    ['chocolate', 'chocolate'], ['morango', 'morango'], ['noz', 'noz'],
+    ['bolacha', 'bolacha'], ['pao de lo', 'pao-lo'], ['amendoa', 'amendoa'],
+    ['rissois', 'rissois'], ['croquetes', 'croquetes'], ['quiches', 'quiches'],
+    ['brigadeiros', 'brigadeiros'], ['nata', 'natas'],
+  ];
+  const slug = images.find(([part]) => name.includes(part))?.[1];
+  return slug ? `/images/products/${slug}.webp` : null;
+}

@@ -127,7 +127,7 @@ export default function Home() {
       {view === 'staff' && <Staff />}
     </main>
 
-    <footer className="site-footer"><span className="footer-logo">Doce Lurdes</span><span>Sem pagamento online · os pedidos ficam pendentes até a Gestora confirmar.</span></footer>
+    <footer className="site-footer"><span className="footer-logo">Doce Lurdes</span><span>Sem pagamento online · os pedidos ficam pendentes até a Gestora confirmar.</span><span>Imagens ilustrativas geradas para este catálogo.</span></footer>
 
     {toast && <div className="toast" key={toast.id} role="status"><span>{toast.text}</span><button type="button" onClick={() => { setToast(null); goTo('cart'); }}>Ver cesto</button></div>}
   </div>;
