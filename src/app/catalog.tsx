@@ -27,7 +27,7 @@ export function ProductCard({ product, category, inCart, add }: { product: Produ
   const photo = productPhoto(product);
   return <article className="product">
     <div className="product-top"><span className={`product-icon product-icon--${category.toLowerCase()}`}><Icon name={iconFor[category]} size={24} /></span>{product.is_custom_cake ? <span className="tag tag--gold">Personalizável</span> : <span className="tag">{category}</span>}</div>
-    <div className="product-photo">{photo ? <Image src={photo} alt={`Imagem ilustrativa: ${product.name}`} width={640} height={480} sizes="(max-width: 620px) 100vw, (max-width: 1024px) 50vw, 33vw" /> : <span className="photo-fallback" aria-hidden="true"><Icon name={iconFor[category]} size={36} /></span>}</div>
+    <div className="product-photo">{photo ? <Image src={photo} alt={`Imagem ilustrativa: ${product.name}`} width={640} height={480} sizes="(max-width: 720px) 100vw, (max-width: 1024px) 50vw, 25vw" /> : <span className="photo-fallback" aria-hidden="true"><Icon name={iconFor[category]} size={36} /></span>}</div>
     <h3>{product.name}</h3>
     <p className="price"><strong>{euro(product.unit_price_cents)}</strong><span>/ {units[product.unit]}</span></p>
     <ul className="product-meta">
@@ -47,7 +47,7 @@ export function Catalog({ products, loading, error, retry, add, counts }: { prod
   const shown = listed.filter(entry => category === 'Todos' || entry.category === category);
   const countIn = (item: Category | 'Todos') => item === 'Todos' ? listed.length : listed.filter(entry => entry.category === item).length;
   return <section className="section" id="catalogo" aria-labelledby="catalog-title">
-    <div className="section-heading reveal"><div><p className="eyebrow">Catálogo</p><h2 id="catalog-title">O que vai para a sua mesa?</h2></div><p>Bolos, doces e salgados por encomenda. Os preços e os alergénios são os de cada produto.</p></div>
+    <div className="section-heading reveal"><div><p className="eyebrow">Catálogo</p><h2 id="catalog-title">O que vai para a sua mesa?</h2></div><p>Bolos, doces e salgados por encomenda. Todos os preços apresentados incluem IVA. Consulte os alergénios de cada produto.</p></div>
     {!loading && !error && listed.length > 0 && <div className="filters catalog-filters" role="group" aria-label="Categorias">{(['Todos', ...present] as const).map(item => <button type="button" key={item} aria-pressed={category === item} onClick={() => setSelected(item)}>{item}<span>{countIn(item)}</span></button>)}</div>}
     {loading ? <Loading label="A carregar o catálogo…" /> : error ? <div className="state-block"><Notice tone="error"><strong>Não foi possível carregar o catálogo.</strong> {error}</Notice><button className="button secondary" type="button" onClick={retry}>Tentar novamente</button></div> : !shown.length ? <EmptyState title="Ainda não há produtos disponíveis">Volte mais tarde ou experimente outra categoria.</EmptyState> : <div className="product-grid">{shown.map(({ product, category: productCategory }) => <ProductCard key={product.id} product={product} category={productCategory} inCart={counts[product.id] ?? 0} add={add} />)}</div>}
   </section>;

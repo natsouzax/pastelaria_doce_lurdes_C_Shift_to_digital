@@ -30,9 +30,9 @@ Há uma única entrada “Equipa” em `src/app/page.tsx` e não se criam rotas 
 | Papel | Interface | Operações autorizadas |
 | --- | --- | --- |
 | Gestora (`manager`) | Alterna internamente entre “Dashboard”, “Gestão” e “Produção” na mesma página | Indicadores semanais e ocupação diária, todas as ações de encomenda e pagamento, mais iniciar e concluir itens de produção |
-| Produção (`production`) | Vê apenas “Produção”; não recebe a navegação nem a vista de Gestão | Consulta de dados necessários à produção e transições de item, sem dados financeiros; o contacto só chega nas encomendas Prontas, para avisar o cliente |
+| Produção (`production`) | Vê apenas “Produção”; não recebe a navegação nem a vista de Gestão | Consulta de dados necessários à produção e transições de item e conclusão de encomendas prontas, sem dados financeiros; o contacto só chega nas encomendas Prontas, para avisar o cliente |
 
-O valor de papel do browser serve apenas para apresentar a secção. Cada API interna volta a validar a sessão através de Supabase Auth `getUser()` e consulta `staff_profiles.active` e `role` pelo `user_id` autenticado. Assim, uma chamada direta de Produção às rotas de pagamentos ou estado geral da encomenda recebe `403 FORBIDDEN`.
+O valor de papel do browser serve apenas para apresentar a secção. Cada API interna volta a validar a sessão através de Supabase Auth `getUser()` e consulta `staff_profiles.active` e `role` pelo `user_id` autenticado. Assim, uma chamada direta de Produção às rotas de pagamentos, confirmação ou cancelamento recebe `403 FORBIDDEN`; só pode concluir uma encomenda que já esteja pronta.
 
 ## Percurso da Gestora no telemóvel
 
@@ -64,7 +64,7 @@ Na única tab “Equipa”, a Gestora encontra as secções internas “Dashboar
 1. A Produção autentica-se e escolhe uma data na secção “Produção” da tab “Equipa”. A lista inclui apenas encomendas Confirmadas e estados seguintes, agrupadas por dia e ordenadas pela hora de levantamento. A Gestora chega à mesma vista pelo seu separador interno “Produção”.
 2. Cada encomenda expande-se para cartões por item. Em cada bolo, alergias declaradas pelo Cliente e alergénios do produto surgem em blocos separados e com destaque visual. Mensagem do bolo e notas de produção também ficam visíveis junto do item a que pertencem.
 3. Em cada cartão, a Produção avança `A fazer` → `Em produção` → `Pronto`, uma ação por vez. A ação afeta apenas aquele item. Ao começar o primeiro item, o estado agregado torna-se `Em produção`.
-4. O estado agregado só passa a `Pronta` quando todos os itens da encomenda estiverem `Pronto`; itens já prontos mantêm o estado enquanto os outros avançam. A Produção não regista pagamentos, não cancela e não marca Entregue.
+4. O estado agregado só passa a `Pronta` quando todos os itens da encomenda estiverem `Pronto`; itens já prontos mantêm o estado enquanto os outros avançam. A Produção não regista pagamentos nem cancela. Quando o cliente levantar a encomenda, pode marcá-la Entregue; qualquer saldo em falta continua pendente para a Gestora.
 5. Quando o último item fica `Pronto`, abre-se um aviso “Encomenda pronta” com o botão “Abrir WhatsApp”: um toque abre a conversa com o cliente e a mensagem já escrita (nome, dia e hora de levantamento). A pessoa só tem de carregar em “Enviar”; o WhatsApp não permite enviar sem esse passo. Se fechar o aviso, o cartão da encomenda pronta mantém o botão “Avisar no WhatsApp” (também na vista da Gestora). Números fixos (começados por 2) mostram um alerta, porque costumam não ter WhatsApp.
 
 ## Mapa de ecrãs e navegação

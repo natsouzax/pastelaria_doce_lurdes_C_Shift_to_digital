@@ -16,13 +16,14 @@ const schema = z.discriminatedUnion('status', [
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const staff = await requireStaff(['manager']);
+    const staff = await requireStaff(['manager', 'production']);
     assertSameOrigin(request);
     const { id } = await context.params;
     if (!z.uuid().safeParse(id).success) throw new ApiError(400, 'VALIDATION_ERROR', 'ID inválido.');
     const parsed = schema.safeParse(await parseJson(request));
     if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'Transição inválida.');
     const body = parsed.data;
+    if (staff.role === 'production' && body.status !== 'delivered') throw new ApiError(403, 'FORBIDDEN', 'A Produção só pode marcar encomendas prontas como entregues.');
     const result = await db.begin(async tx => {
       const rows = await tx`select *, pickup_date::text as pickup_date_text from public.orders where id=${id}::uuid for update`;
       const order = rows[0];
@@ -59,8 +60,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return { status: body.status, paid: body.status === 'cancelled' && refund ? 0 : paid, refund,
         total: Number(order.total_cents), reserved: capacityReserved(body.status, customCakeCount) };
     });
-    return NextResponse.json({ id, status: result.status, amount_paid_cents: result.paid,
-      balance_due_cents: Math.max(0, result.total - result.paid), capacity_reserved: result.reserved,
+    return NextResponse.json({ id, status: result.status,
+      ...(staff.role === 'manager' ? { amount_paid_cents: result.paid,
+        balance_due_cents: Math.max(0, result.total - result.paid), capacity_reserved: result.reserved } : {}),
       ...(result.refund ? { payment: { id: result.refund.id, kind: 'refund', amount_cents: result.refund.amount_cents } } : {}) }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return jsonError(error); }
 }

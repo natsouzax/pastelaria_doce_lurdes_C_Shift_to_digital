@@ -1,104 +1,110 @@
-# Doce Lurdes — gestão de encomendas
+# Pastelaria Doce Lurdes
 
-Aplicação web para a Pastelaria Doce Lurdes. O cliente encomenda e acompanha sem conta; a Gestora administra encomendas e pagamentos simulados; a Produção consulta a agenda e avança cada item.
+Aplicação web para gerir encomendas de uma pastelaria, desde o catálogo até à produção e ao levantamento. O cliente faz e acompanha uma encomenda sem criar conta; a equipa gere pedidos e consulta o trabalho do dia.
 
-## Estado e verificação da integração
+## Aplicação
 
-Arquitetura/API, fluxos, backend e frontend estão integrados em `main` (PRs #2, #3, #5 e #4). Este PR #1 contém apenas documentação de integração e permanece separado para revisão.
+O projeto está [publicado em produção na Vercel](https://pastelaria-doce-lurdes-c-shift-to-d.vercel.app). O acesso aos domínios `vercel.app` está protegido por SSO e requer autorização da equipa.
 
-Executado neste checkout com Node.js 24.19.0 e npm 11.17.0:
+## O que é possível fazer
 
-- `npm ci` — concluído com o lockfile integrado; auditoria npm reportou 0 vulnerabilidades.
-- `npm run typecheck` — passou.
-- `npm test` — 24 passaram, 1 ignorado. O teste PostgreSQL exige `RUN_DATABASE_INTEGRATION_TESTS=1` e `TEST_DATABASE_URL` local; não usa `DATABASE_URL` da aplicação.
-- `npm run build` — passou; Next.js compilou as páginas e rotas da API.
-
-O setup local com Docker não foi executado porque Docker não está instalado neste ambiente. A equipa ativou um projeto Supabase remoto separado e reportou migração, seed e teste transacional PostgreSQL concluídos (detalhes abaixo). Ainda faltam `DATABASE_URL`/host do pooler e contas Auth para testar as rotas protegidas e a aplicação ponta a ponta. O teste de migração local usa PGlite; não substitui uma execução repetível no Supabase.
-
-## Instalação local
-
-Requisitos: Node.js 20.9 ou posterior, npm e Docker para o Supabase local.
-
-1. Instale dependências pelo lockfile: `npm ci`.
-2. Copie `.env.example` para `.env.local` e preencha os valores de um projeto Supabase local ou autorizado.
-3. Inicie Supabase local: `npx --yes supabase@3.2.0 start`.
-4. Aplique as migrações locais: `npx --yes supabase@3.2.0 migration up`. O CLI 3.2.0 aplica localmente por padrão; não acrescente `--remote`.
-5. Carregue os dados originais e a fixture de demonstração, por esta ordem: `npm run seed:original` e `npm run seed:demo`.
-6. Inicie a aplicação: `npm run dev` (Next.js em `http://localhost:3000`).
-
-O Supabase local fornece a URL, a publishable key e a ligação PostgreSQL local. `DATABASE_URL` só é usada pelo servidor e pelos scripts de seed; nunca a exponha como variável `NEXT_PUBLIC_*`. Para o projeto remoto, obtenha a URL e publishable key na configuração do projeto e a connection string PostgreSQL/pooler em Database Settings. O README e `.env.example` não contêm chaves nem a connection string.
-
-## Variáveis de ambiente
-
-`.env.example` contém somente nomes e valores vazios, sem tokens ou credenciais:
-
-| Variável | Uso |
+| Perfil | Funcionalidades |
 | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL do endpoint Supabase usada pelo cliente Auth. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Chave publicável do Supabase Auth; não é a chave `service_role`. |
-| `DATABASE_URL` | Connection string PostgreSQL usada apenas no servidor e nos scripts. Tratar como segredo. |
-| `DEMO_RECORDED_BY` | Opcional: UUID de uma Gestora Auth para atribuir o pagamento simulado da fixture. Se omitido, permanece nulo por ser dado importado. |
+| Cliente | Consultar o catálogo, fazer uma encomenda sem conta e acompanhar o estado com um código de seguimento. |
+| Gestora | Gerir catálogo e encomendas, registar pagamentos simulados, confirmar pedidos e concluir a entrega. |
+| Produção | Consultar encomendas confirmadas por data, ver alergias e notas, e atualizar o estado de produção de cada artigo. |
 
-Nunca commitar `.env`, `.env.local`, chaves privadas, palavras-passe ou connection strings. `.gitignore` cobre `.env*` (com exceção de `.env.example`), `node_modules/`, `.next/` e `*.tsbuildinfo`.
+### Regras principais
 
-## Migração, seed e contas internas
+- O servidor valida os prazos de antecedência, os dias de levantamento e a capacidade diária.
+- Cada data aceita até seis encomendas não canceladas. Cada bolo personalizado confirmado ocupa uma vaga própria, até ao limite de seis bolos por data.
+- A confirmação de uma encomenda personalizada exige o registo do sinal. O saldo é calculado pela aplicação.
+- Os estados de produção são acompanhados por artigo. A encomenda fica pronta quando todos os artigos estiverem prontos.
+- Os pagamentos são apenas registados na aplicação; não existe integração com um prestador de pagamentos.
 
-O schema inicial está em `supabase/migrations/20261116210057_initial_schema.sql`. Aplique-o com os comandos do setup local acima. Para uma base nova, carregue os dados assim:
+## Tecnologias
 
-- `npm run seed:original` importa exatamente 11 produtos e 8 encomendas do dossier, com IDs estáveis.
-- `npm run seed:demo` acrescenta cinco bolos para 24/11/2026 às 10:00; o sexto bolo é criado pelo fluxo do cliente na demonstração.
+- [Next.js](https://nextjs.org/) e React
+- TypeScript
+- [Supabase](https://supabase.com/) para autenticação e PostgreSQL
+- Vercel para alojamento
 
-Validação remota reportada pela equipa: o seed carregou os 11 produtos, 8 encomendas originais, cinco bolos da fixture de 24/11 e os dois sinais históricos inferidos de 17 € e 24 €. A migração `20261116210057_initial_schema.sql` foi aplicada no projeto remoto abaixo. Estes resultados foram reportados pela equipa; os scripts não foram executados deste checkout porque falta a connection string `DATABASE_URL`.
+## Executar localmente
 
-Os dados históricos não têm datas absolutas na fonte. O seed atribui a semana de 17–22/11/2026 e documenta as datas, estados e valores inferidos em [seed/README.md](seed/README.md). Estas datas históricas não são a fixture de relógio da demo. A fixture do passo a passo usa T0=17/11/2026 10:00 Europe/Lisbon, pedido principal para 24/11 às 10:00, pedido demasiado cedo para 19/11 às 10:00 e segunda-feira 23/11. O código atual usa o relógio real do servidor; não há injeção de relógio na aplicação, portanto a repetição futura das datas do roteiro exige ajustar a fixture ou executar num ambiente de teste com relógio compatível.
+### Requisitos
 
-O signup público está desativado na configuração local (`supabase/config.toml`); manter também desativado no projeto hospedado. Para provisionar perfis de teste num projeto local/autorizado:
+- Node.js 20.9 ou posterior
+- npm
+- Docker, para iniciar o Supabase local
 
-1. Crie utilizadores internos em Supabase Auth (Dashboard/Studio ou mecanismo administrativo autorizado), definindo as palavras-passe fora do repositório.
-2. Copie o UUID de cada utilizador e insira-o na tabela protegida `public.staff_profiles`, atribuindo `manager` ou `production`:
+### Instalação
 
-```sql
-insert into public.staff_profiles (user_id, role)
-values ('<UUID_DO_UTILIZADOR>', 'manager');
+1. Instale as dependências:
 
-insert into public.staff_profiles (user_id, role)
-values ('<UUID_DO_UTILIZADOR>', 'production');
-```
+   ```sh
+   npm ci
+   ```
 
-Não existem contas de demonstração pré-criadas nem credenciais para publicar. A Gestora regista pagamentos e entrega encomendas; Produção só avança estado por item. As rotas verificam a sessão Auth e o perfil ativo no servidor.
+2. Copie `.env.example` para `.env.local` e preencha as variáveis com os valores do seu projeto Supabase local ou autorizado.
 
-## Cenário oficial de demonstração
+3. Inicie o Supabase local e aplique as migrações:
 
-Os contratos completos estão em [docs/requisitos.md](docs/requisitos.md), [docs/api.md](docs/api.md) e [docs/fluxos.md](docs/fluxos.md). A fixture usa T0=17/11/2026 10:00 Europe/Lisbon, levantamento principal em 24/11/2026 às 10:00, prazo curto em 19/11 e segunda-feira em 23/11. Estas datas de demonstração são distintas das datas históricas inferidas no seed.
+   ```sh
+   npx --yes supabase@3.2.0 start
+   npx --yes supabase@3.2.0 migration up
+   ```
 
-Roteiro previsto para a demonstração:
+4. Opcionalmente, carregue os dados de origem e a fixture de demonstração:
 
-1. Cliente cria bolo personalizado de chocolate de 2 kg com mensagem “Parabéns Inês” e alergia a frutos secos; guarda o código apresentado uma vez.
-2. Pedido para 19/11 é rejeitado por antecedência insuficiente.
-3. Pedido para 23/11 é rejeitado por encerramento à segunda-feira.
-4. Gestora confirma o pedido principal após registar sinal de 17 € sobre o total de 56 €; saldo calculado de 39 €.
-5. Produção encontra o bolo para 24/11 e vê a alergia declarada em destaque, separada dos alergénios do produto.
-6. A fixture já contém cinco bolos confirmados para 24/11; com o pedido principal confirmado, há seis. Outro bolo nessa data é rejeitado por capacidade.
-7. Cliente consulta pelo código; Produção avança o item até Pronto; Gestora regista o restante e marca Entregue.
+   ```sh
+   npm run seed:original
+   npm run seed:demo
+   ```
 
-O teste do roteiro completo de API/UI ainda está pendente. O backend usa o relógio real; a aplicação ainda não permite injetar T0 para repetir a demo em qualquer data. A criação das contas internas também está pendente: o painel de Auth não estava acessível e o signup público atingiu rate limit. Não há contas de teste nem credenciais para publicar.
+5. Inicie a aplicação:
 
-`POST /api/orders` recusa uma data que já tenha seis encomendas não canceladas, sem criar pedido ou código (`409 CAPACITY_FULL`). O limite inclui pedidos Pendentes; um pedido cancelado liberta o lugar. Mantém-se também o limite de seis bolos personalizados confirmados por data, reservado atomicamente ao registar o sinal.
+   ```sh
+   npm run dev
+   ```
 
-## Comandos de qualidade
+A aplicação fica disponível em `http://localhost:3000`.
+
+## Configuração
+
+| Variável | Utilização |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase usada pelo cliente de autenticação. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Chave publicável do Supabase Auth. |
+| `DATABASE_URL` | Ligação PostgreSQL usada apenas no servidor e nos scripts de seed. É um segredo. |
+| `DEMO_RECORDED_BY` | Opcional. UUID da conta de Gestora usada para atribuir pagamentos da fixture. |
+
+Não exponha `DATABASE_URL`, palavras-passe ou chaves privadas em variáveis `NEXT_PUBLIC_*`, no repositório ou em documentação. O ficheiro `.env.example` contém apenas os nomes das variáveis.
+
+## Contas internas
+
+O registo público de contas está desativado. Para testar os painéis internos, crie utilizadores no Supabase Auth e atribua-lhes um perfil `manager` ou `production` na tabela protegida `public.staff_profiles`. As palavras-passe devem ser definidas fora do repositório. Não há contas de demonstração nem credenciais incluídas.
+
+## Comandos
 
 ```sh
-npm run typecheck
-npm test
-npm run build
+npm run dev        # inicia o servidor local
+npm run typecheck  # verifica os tipos TypeScript
+npm test           # executa os testes
+npm run build      # prepara a aplicação para produção
 ```
 
-O teste de capacidade PostgreSQL requer `RUN_DATABASE_INTEGRATION_TESTS=1` e `TEST_DATABASE_URL` para uma base local com as migrações aplicadas. Ligações remotas exigem também o opt-in explícito `TEST_ALLOW_REMOTE_DATABASE=true`. Sem esses valores, o teste é ignorado. O projeto não integra pagamentos, email, SMS, WhatsApp ou Instagram; todos os registos de pagamento são simulados.
+O teste de integração PostgreSQL é ignorado por omissão. Para o executar, configure `RUN_DATABASE_INTEGRATION_TESTS=1` e `TEST_DATABASE_URL` para uma base de teste com as migrações aplicadas. Para uma base remota, é também necessário definir explicitamente `TEST_ALLOW_REMOTE_DATABASE=true`.
 
-## Evidência PostgreSQL remota
+## Documentação
 
-A equipa reportou um teste transacional real no projeto `pastelaria-doce-lurdes-mvp` (`eu-west-1`, ref `cnrfbypzershppmwqtlw`, endpoint `https://cnrfbypzershppmwqtlw.supabase.co`): confirmação do sexto bolo; `CAPACITY_FULL` no sétimo sem gravar sinal; e `CAPACITY_LOST_AFTER_PAYMENT` após sinal externo, sem criar uma sétima vaga e com rollback mantendo cinco bolos confirmados na fixture. Esta evidência valida a migração/capacidade no PostgreSQL remoto, mas não valida as sessões Auth, as permissões através da API, nem os fluxos da interface.
+- [Requisitos e fluxos](docs/requisitos.md)
+- [Contrato da API](docs/api.md)
+- [Fluxos da aplicação](docs/fluxos.md)
+- [Modelo de dados](docs/modelo-dados.md)
+- [Dados de origem e demonstração](seed/README.md)
 
-## Deploy e limitações
+## Dados e demonstração
 
-Vercel é o destino previsto, mas não há URL de deploy confirmada. O projeto Supabase remoto foi criado pela equipa e teve migração, seed e teste transacional reportados; faltam disponibilizar a connection string/pooler em `DATABASE_URL` e provisionar contas internas para testar API/UI ponta a ponta. Nenhum segredo do projeto foi adicionado ao repositório. O deploy, as permissões com sessões reais e a demonstração integral ficam por validar.
+O seed original importa 11 produtos e 8 encomendas com identificadores estáveis. A fixture de demonstração acrescenta dados para percorrer os fluxos de encomenda, confirmação e produção. As datas históricas atribuídas aos dados de origem são inferidas e estão documentadas em [seed/README.md](seed/README.md).
+
+O roteiro funcional está descrito em [docs/requisitos.md](docs/requisitos.md). A aplicação usa o relógio real do servidor; as datas fixas do roteiro destinam-se ao contexto de demonstração documentado e não constituem um relógio de teste configurável.

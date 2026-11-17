@@ -122,10 +122,10 @@ O papel nunca vem do browser. Cada operação interna chama `requireStaff`, que 
 | --- | --- | --- |
 | `GET /api/staff/me` e `GET /api/staff/orders` | Permitido; lista inclui contacto e dados financeiros | Permitido; só encomendas confirmadas/em produção/prontas, sem dados financeiros; nome e telefone apenas quando a encomenda está `ready` |
 | `PATCH /api/staff/order-items/{id}/status` | Permitido | Permitido |
-| `PATCH /api/staff/orders/{id}/status` | Permitido | `403 FORBIDDEN` |
+| `PATCH /api/staff/orders/{id}/status` | Permitido | Permitido apenas para `delivered` |
 | `POST /api/staff/orders/{id}/payments` | Permitido | `403 FORBIDDEN` |
 
-As rotas de pagamento e estado da encomenda continuam exclusivas da Gestora, exigem `assertSameOrigin` e a rota de pagamentos exige `Idempotency-Key`. Nunca enviar `service_role` ao cliente.
+A rota de pagamentos continua exclusiva da Gestora. Ambas exigem `assertSameOrigin`, e a rota de pagamentos exige `Idempotency-Key`. Nunca enviar `service_role` ao cliente.
 
 ### `GET /api/staff/orders` — Gestora ou Produção
 
@@ -145,11 +145,13 @@ Se o pagamento externo já foi recebido, mas a vaga desapareceu, registar o sina
 
 ### `PATCH /api/staff/order-items/{id}/status` — Gestora ou Produção
 
-Corpo `{"status":"in_progress"}` ou `{"status":"ready"}`. Item deve pertencer a encomenda `confirmed` ou `in_production`; estado apenas avança um passo. Operação atualiza item e estado agregado da encomenda na mesma transação. Gestora e Produção podem usar esta rota. Resposta `200`: `{ "item": {"id","production_status"}, "order": {"id","status"} }`. Produção continua proibida de marcar `delivered`, cancelar, editar pagamentos ou mudar dados do cliente.
+Corpo `{"status":"in_progress"}` ou `{"status":"ready"}`. Item deve pertencer a encomenda `confirmed` ou `in_production`; estado apenas avança um passo. Operação atualiza item e estado agregado da encomenda na mesma transação. Gestora e Produção podem usar esta rota. Resposta `200`: `{ "item": {"id","production_status"}, "order": {"id","status"} }`. Esta rota de estado dos itens não permite marcar a encomenda como `delivered`, cancelar, editar pagamentos ou mudar dados do cliente.
 
-### `PATCH /api/staff/orders/{id}/status` — Gestora
+### `PATCH /api/staff/orders/{id}/status` — Gestora ou Produção
 
-Corpo `{"status":"confirmed"}` para pedido sem personalizado, `{"status":"cancelled","reason":"..."}` para cancelamento, ou `{"status":"delivered"}`. Gestora não pode forçar `in_production`/`ready`; estes são derivados dos itens. Confirmar personalizado por esta rota é sempre rejeitado: exige pagamento e capacidade na rota de pagamento. Cancelar aplica a política das 48 horas acima e liberta vagas transacionalmente. Entregar exige encomenda `ready` e saldo zero. Resposta `200`: `{ "id","status","amount_paid_cents","balance_due_cents","capacity_reserved" }`; cancelamento que cria reembolso inclui também o registo de pagamento refund.
+Corpo `{"status":"confirmed"}` para pedido sem personalizado, `{"status":"cancelled","reason":"..."}` para cancelamento, ou `{"status":"delivered"}`. Gestora não pode forçar `in_production`/`ready`; estes são derivados dos itens. Confirmar personalizado por esta rota é sempre rejeitado: exige pagamento e capacidade na rota de pagamento. Cancelar aplica a política das 48 horas acima e liberta vagas transacionalmente. Entregar exige encomenda `ready` e pode ser registada mesmo com saldo em falta, que continua pendente para a Gestora. Resposta `200`: `{ "id","status","amount_paid_cents","balance_due_cents","capacity_reserved" }`; cancelamento que cria reembolso inclui também o registo de pagamento refund.
+
+Produção só pode usar `{"status":"delivered"}` e apenas quando a encomenda estiver `ready`; não pode confirmar, cancelar ou editar pagamentos. A entrega pode ser registada com saldo em falta, que continua pendente para a Gestora. A resposta de Produção contém apenas `{ "id","status" }`; a Gestora recebe também valores financeiros e capacidade.
 
 ## Erros comuns
 

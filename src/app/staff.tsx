@@ -8,7 +8,7 @@ import { isLandline, readyMessage, whatsappLink } from '@/lib/whatsapp';
 import { describeError, euro, pickupTimeLabel, units, weightLabel } from './presentation';
 import { EmptyState, Icon, Loading, Notice, Status, statusLabel } from './ui';
 
-type Pending = { title: string; body: string; confirm: string; danger?: boolean; reason?: boolean; run: (reason?: string) => Promise<unknown> };
+type Pending = { title: string; body: string; confirm: string; danger?: boolean; reason?: boolean; success?: string; run: (reason?: string) => Promise<unknown> };
 
 function ConfirmDialog({ pending, busy, onCancel, onConfirm }: { pending: Pending | null; busy: boolean; onCancel: () => void; onConfirm: (reason?: string) => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -86,6 +86,7 @@ export function Staff() {
   const [staffDate, setStaffDate] = useState('');
   const [orders, setOrders] = useState<StaffOrder[]>([]);
   const [staffError, setStaffError] = useState('');
+  const [staffSuccess, setStaffSuccess] = useState('');
   const [staffBusy, setStaffBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<'all' | OrderStatus>('all');
@@ -197,11 +198,13 @@ export function Staff() {
     finally { setRole(null); setOrders([]); setLoaded(false); setStaffDate(''); }
   }
 
-  async function staffAction(action: (reason?: string) => Promise<unknown>, reason?: string) {
+  async function staffAction(action: (reason?: string) => Promise<unknown>, reason?: string, success?: string) {
     setStaffError('');
+    setStaffSuccess('');
     setStaffBusy(true);
     try {
       await action(reason);
+      if (success) setStaffSuccess(success);
     } catch (error) {
       const detail = error instanceof ApiFailure && error.paymentRecorded ? ' O sinal foi registado; não repita o pagamento.' : '';
       setStaffError(describeError(error).message + detail);
@@ -386,6 +389,7 @@ export function Staff() {
     {loaded && !dashboardView && productionView && <dl className="tiles"><div><dt>Por começar</dt><dd>{itemCount('to_do')}</dd></div><div><dt>Em produção</dt><dd>{itemCount('in_progress')}</dd></div><div><dt>Prontos</dt><dd>{itemCount('ready')}</dd></div></dl>}
 
     {staffError && <Notice tone="error">{staffError}</Notice>}
+    {staffSuccess && <Notice>{staffSuccess}</Notice>}
     {!loaded && <Loading label="A carregar encomendas…" count={3} />}
     {!dashboardView && loaded && !visible.length && !staffError && <EmptyState title={productionView ? 'Sem encomendas em produção neste dia' : dayOrders.length ? 'Nenhuma encomenda corresponde aos filtros' : 'Sem levantamentos neste dia'}>{productionView ? 'Escolha outro dia na semana. Só aparecem encomendas confirmadas, em produção ou prontas.' : dayOrders.length ? 'Altere o estado ou a pesquisa.' : 'Escolha outro dia na semana.'}</EmptyState>}
 
@@ -414,7 +418,10 @@ export function Staff() {
           </div>
           {productionView && (item.production_status === 'ready' ? <span className="item-done"><Icon name="check" size={18} />Pronto</span> : <button type="button" className="button primary item-action" disabled={staffBusy} onClick={() => void advanceItem(item)}>{item.production_status === 'to_do' ? 'Iniciar' : 'Marcar pronto'}</button>)}
         </div>)}</div>
-        {productionView && order.status === 'ready' && whatsappFor(order) && <div className="order-notify"><WhatsappButton order={order} /></div>}
+        {productionView && order.status === 'ready' && <div className="order-notify">
+          {whatsappFor(order) && <WhatsappButton order={order} />}
+          <button type="button" className="button primary" disabled={staffBusy} onClick={() => ask({ title: 'Confirmar entrega', body: 'Confirma que o cliente levantou esta encomenda? O pedido ficará Entregue. Qualquer valor por receber continua pendente para a Gestora.', confirm: 'Marcar como entregue', success: 'Encomenda marcada como entregue.', run: () => api.orderStatus(order.id, 'delivered') })}>Marcar como entregue</button>
+        </div>}
         {managementView && <footer className="order-foot">
           <dl className="money money--inline"><div><dt>Total</dt><dd>{euro(order.total_cents ?? 0)}</dd></div><div><dt>Pago</dt><dd>{euro(paid)}</dd></div><div><dt>Por pagar</dt><dd>{euro(balance)}</dd></div></dl>
           {order.payments?.length ? <div className="payment-list" aria-label="Registos de pagamento">{order.payments.map(payment => <p key={payment.id}><strong>{payment.kind === 'deposit' ? 'Sinal' : payment.kind === 'balance' ? 'Restante' : 'Reembolso'}</strong><span>{euro(payment.amount_cents)} · {new Date(payment.recorded_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}</span>{payment.note && <small>{payment.note}</small>}</p>)}</div> : <p className="muted payment-empty">Sem pagamentos registados.</p>}
@@ -432,6 +439,6 @@ export function Staff() {
       </article>;
     })}</div>}
     <NotifyDialog order={orders.find(order => order.id === notifyId && order.status === 'ready') ?? null} onClose={() => setNotifyId(null)} />
-    <ConfirmDialog pending={pending} busy={staffBusy} onCancel={() => !staffBusy && setPending(null)} onConfirm={reason => pending && void staffAction(pending.run, reason)} />
+    <ConfirmDialog pending={pending} busy={staffBusy} onCancel={() => !staffBusy && setPending(null)} onConfirm={reason => pending && void staffAction(pending.run, reason, pending.success)} />
   </section>;
 }
