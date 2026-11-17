@@ -1,49 +1,62 @@
 import { useState } from 'react';
 import type { Product } from '@/lib/api';
-import { categoryOf, euro, leadLabel, units } from './presentation';
-import { EmptyState, HeroArt, Loading, ProductArt } from './ui';
+import { categories, categoryOf, euro, leadLabel, units, type Category } from './presentation';
+import { EmptyState, HeroVisual, Icon, Loading, Notice, type IconName } from './ui';
 
-export function Hero() {
+export function Hero({ onTrack }: { onTrack: () => void }) {
   return <section className="hero" aria-labelledby="hero-title">
     <div className="hero-copy">
-      <p className="eyebrow">Pastelaria de bairro · desde sempre</p>
-      <h1 id="hero-title">Feito com tempo,<br />para os seus<br /><em>melhores momentos.</em></h1>
-      <p className="hero-lead">Bolos, doces e salgados para a sua mesa. Escolha os favoritos, combine o levantamento e deixe o resto connosco.</p>
-      <div className="hero-actions"><a className="button primary" href="#catalogo">Ver catálogo <span aria-hidden="true">→</span></a><a className="text-link" href="#como-encomendar">Como funciona <span aria-hidden="true">↗</span></a></div>
-      <p className="hero-footnote">Sem pagamento online. O pedido fica pendente até a Gestora confirmar.</p>
+      <p className="eyebrow hero-in">Pastelaria · encomendas</p>
+      <h1 id="hero-title" className="hero-in">Doces momentos,<br /><em>feitos com tempo.</em></h1>
+      <p className="hero-lead hero-in">Bolos, doces e salgados para a sua mesa. Escolha, combine o levantamento e a nossa Gestora confirma a sua encomenda.</p>
+      <div className="hero-actions hero-in"><a className="button primary" href="#catalogo">Ver catálogo <Icon name="arrow" size={18} /></a><button type="button" className="button ghost" onClick={onTrack}>Acompanhar pedido</button></div>
+      <ul className="hero-facts hero-in" aria-label="Como funciona a encomenda">
+        <li><strong>Sem pagamento online</strong><span>Paga na pastelaria</span></li>
+        <li><strong>Confirmada pela Gestora</strong><span>Até lá, fica pendente</span></li>
+        <li><strong>5 dias · 48 horas</strong><span>Bolos personalizados · restantes</span></li>
+      </ul>
     </div>
-    <div className="hero-visual"><HeroArt /></div>
+    <HeroVisual />
   </section>;
 }
 
-export function Catalog({ products, loading, error, retry, add }: { products: Product[]; loading: boolean; error: string; retry: () => void; add: (product: Product) => void }) {
-  const [category, setCategory] = useState('Todos');
-  const [announcement, setAnnouncement] = useState('');
-  const shown = products.filter(product => category === 'Todos' || categoryOf(product) === category);
-  return <section className="catalog section" id="catalogo" aria-labelledby="catalog-title">
-    <div className="section-heading"><div><p className="eyebrow">O que vai para a sua mesa?</p><h2 id="catalog-title">O nosso catálogo</h2></div><p>Bolos, doces e salgados por encomenda.<br />Escolha os seus favoritos e combine o levantamento.</p></div>
-    <div className="catalog-toolbar"><div className="filters" aria-label="Categorias">{['Todos', 'Bolos', 'Doces', 'Salgados'].map(item => <button type="button" key={item} aria-pressed={category === item} onClick={() => setCategory(item)}>{item}</button>)}</div><span className="muted">{loading ? 'A consultar catálogo…' : `${shown.length} ${shown.length === 1 ? 'produto' : 'produtos'}`}</span></div>
-    <p className="sr-only" role="status">{announcement}</p>
-    {loading ? <Loading label="A carregar o catálogo…" /> : error ? <div className="error-state" role="alert"><h3>O catálogo está indisponível</h3><p>{error}</p><button className="button secondary" type="button" onClick={retry}>Tentar novamente</button></div> : !shown.length ? <EmptyState title="Sem produtos nesta categoria">Tente outra categoria ou volte mais tarde.</EmptyState> : <div className="product-grid">{shown.map(product => <article className="product" key={product.id}>
-      <div className="product-photo"><ProductArt name={product.name} category={product.category} />{product.is_custom_cake && <span className="art-label">Personalizável</span>}</div>
-      <div className="product-body">
-        <div className="product-heading"><h3>{product.name}</h3><p className="price">{euro(product.unit_price_cents)}<small>/ {units[product.unit]}</small></p></div>
-        <p className="product-lead"><span aria-hidden="true">◷</span> Encomendar com {leadLabel(product.min_lead_hours)} de antecedência</p>
-        <p className="allergen-list"><strong>Alergénios:</strong> {product.allergens.join(', ') || 'Não indicados'}</p>
-        <button type="button" className="add-button" onClick={() => { add(product); setAnnouncement(`${product.name} adicionado ao cesto.`); }}>Adicionar {product.is_custom_cake ? 'bolo' : 'ao cesto'}<span aria-hidden="true">+</span></button>
-      </div>
-    </article>)}</div>}
+const iconFor: Record<Category, IconName> = { Bolos: 'cake', Doces: 'sweet', Salgados: 'savoury' };
+
+export function ProductCard({ product, inCart, add }: { product: Product; inCart: number; add: (product: Product) => void }) {
+  const category = categoryOf(product);
+  return <article className="product reveal">
+    <div className="product-top"><span className={`product-icon product-icon--${category.toLowerCase()}`}><Icon name={iconFor[category]} size={24} /></span>{product.is_custom_cake ? <span className="tag tag--gold">Personalizável</span> : <span className="tag">{category}</span>}</div>
+    <h3>{product.name}</h3>
+    <p className="price"><strong>{euro(product.unit_price_cents)}</strong><span>/ {units[product.unit]}</span></p>
+    <ul className="product-meta">
+      <li><Icon name="clock" size={16} /><span>Encomende com <strong>{leadLabel(product.min_lead_hours)}</strong> de antecedência</span></li>
+    </ul>
+    <div className="allergens"><span className="allergens-label">Alergénios</span>{product.allergens.length ? <ul>{product.allergens.map(item => <li key={item}>{item}</li>)}</ul> : <span className="muted">Não indicados</span>}</div>
+    <button type="button" className="button add" onClick={() => add(product)}><Icon name="plus" size={18} />{product.is_custom_cake ? 'Adicionar bolo' : 'Adicionar ao cesto'}{inCart > 0 && <span className="in-cart">{inCart} no cesto</span>}</button>
+  </article>;
+}
+
+export function Catalog({ products, loading, error, retry, add, counts }: { products: Product[]; loading: boolean; error: string; retry: () => void; add: (product: Product) => void; counts: Record<string, number> }) {
+  const [category, setCategory] = useState<Category | 'Todos'>('Todos');
+  const ordered = [...products].sort((a, b) => categories.indexOf(categoryOf(a)) - categories.indexOf(categoryOf(b)));
+  const shown = ordered.filter(product => category === 'Todos' || categoryOf(product) === category);
+  const present = categories.filter(item => products.some(product => categoryOf(product) === item));
+  return <section className="section" id="catalogo" aria-labelledby="catalog-title">
+    <div className="section-heading reveal"><div><p className="eyebrow">Catálogo</p><h2 id="catalog-title">O que vai para a sua mesa?</h2></div><p>Bolos, doces e salgados por encomenda. Os preços e os alergénios são os de cada produto.</p></div>
+    {!loading && !error && products.length > 0 && <div className="filters reveal" role="group" aria-label="Categorias">{(['Todos', ...present] as const).map(item => <button type="button" key={item} aria-pressed={category === item} onClick={() => setCategory(item)}>{item}<span>{item === 'Todos' ? products.length : products.filter(product => categoryOf(product) === item).length}</span></button>)}</div>}
+    {loading ? <Loading label="A carregar o catálogo…" /> : error ? <div className="state-block"><Notice tone="error"><strong>Não foi possível carregar o catálogo.</strong> {error}</Notice><button className="button secondary" type="button" onClick={retry}>Tentar novamente</button></div> : !shown.length ? <EmptyState title="Ainda não há produtos disponíveis">Volte mais tarde ou experimente outra categoria.</EmptyState> : <div className="product-grid">{shown.map(product => <ProductCard key={product.id} product={product} inCart={counts[product.id] ?? 0} add={add} />)}</div>}
   </section>;
 }
 
 export function HowToOrder() {
-  return <section className="how section" id="como-encomendar" aria-labelledby="how-title">
-    <div className="section-heading"><div><p className="eyebrow">Simples e sem pressa</p><h2 id="how-title">Da escolha ao levantamento</h2></div><p>Quatro passos curtos. Sem conta, sem pagamento online.</p></div>
-    <ol className="how-steps">
-      <li><span>01</span><h3>Escolha os produtos</h3><p>Adicione ao cesto e personalize cada bolo com peso, mensagem e alergias.</p></li>
-      <li><span>02</span><h3>Combine o levantamento</h3><p>Indique o dia e a hora. Não há levantamentos à segunda-feira.</p></li>
-      <li><span>03</span><h3>Deixe o seu contacto</h3><p>Precisamos do nome e do telefone para o avisarmos quando estiver pronto.</p></li>
-      <li><span>04</span><h3>Aguarde a confirmação</h3><p>A Gestora verifica a disponibilidade. O pedido pendente não reserva vaga.</p></li>
-    </ol>
+  const steps = [
+    ['Escolha os produtos', 'Adicione ao cesto. Em cada bolo indique peso, mensagem e alergias.'],
+    ['Combine o levantamento', 'Escolha o dia e a hora. Não há levantamentos à segunda-feira.'],
+    ['Deixe o seu contacto', 'Nome e telefone, para a pastelaria falar consigo se for preciso.'],
+    ['Aguarde a confirmação', 'A Gestora verifica a disponibilidade. Até lá, o pedido fica pendente.'],
+  ];
+  return <section className="section how" id="como-encomendar" aria-labelledby="how-title">
+    <div className="section-heading reveal"><div><p className="eyebrow">Passo a passo</p><h2 id="how-title">Da escolha ao levantamento</h2></div><p>Sem conta e sem pagamento online. Guarde o código do pedido para o acompanhar.</p></div>
+    <ol className="how-steps">{steps.map(([title, text], index) => <li className="reveal" key={title} style={{ transitionDelay: `${index * 70}ms` }}><span>{String(index + 1).padStart(2, '0')}</span><h3>{title}</h3><p>{text}</p></li>)}</ol>
   </section>;
 }
