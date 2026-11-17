@@ -15,10 +15,14 @@ const stepLabels = ['Produtos', 'Levantamento', 'Contacto', 'Rever'];
 const stepTitles = ['O seu cesto', 'Quando quer levantar?', 'Como falamos consigo?', 'Reveja o pedido'];
 const isMonday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay() === 1;
 
-function earliestDate(leadHours: number) {
-  const day = new Date(`${lisbonDateString(new Date(Date.now() + leadHours * 3600000))}T12:00:00Z`);
-  if (day.getUTCDay() === 1) day.setUTCDate(day.getUTCDate() + 1);
-  return day.toISOString().slice(0, 10);
+function earliestDate(leadHours: number, time: string) {
+  const day = new Date(`${lisbonDateString(new Date())}T12:00:00Z`);
+  const minimumPickupTime = Date.now() + leadHours * 3600000;
+  while (true) {
+    const date = day.toISOString().slice(0, 10);
+    if (day.getUTCDay() !== 1 && new Date(lisbonPickupTimestamp(date, time)).getTime() >= minimumPickupTime) return date;
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
 }
 
 function Stepper({ value, onChange, step, min, label, id, invalid }: { value: string; onChange: (value: string) => void; step: number; min: number; label: string; id: string; invalid: boolean }) {
@@ -51,7 +55,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
   const lead = Math.max(0, ...selected.map(({ product }) => product.min_lead_hours));
   const hasCustomCake = selected.some(({ product }) => product.is_custom_cake);
   const deposit = hasCustomCake ? Math.floor((total * 3 + 500) / 1000) * 100 : 0;
-  const earliest = earliestDate(lead);
+  const earliest = earliestDate(lead, time);
 
   useEffect(() => { if (!date) setDate(earliest); }, [date, earliest]);
   useEffect(() => { if (mounted.current) heading.current?.focus({ preventScroll: false }); mounted.current = true; }, [step, created]);
@@ -154,7 +158,7 @@ export function Checkout({ lines, products, update, remove, duplicate, shop, sub
               <div className="field"><label htmlFor="pickup-date">Dia de levantamento</label><input id="pickup-date" type="date" min={earliest} value={date} onChange={event => { setDate(event.target.value); setErrors({}); }} aria-invalid={Boolean(errors['pickup-date'])} aria-describedby="pickup-date-error" />{err('pickup-date')}</div>
               <div className="field"><label htmlFor="pickup-time">Hora</label><input id="pickup-time" type="time" value={time} onChange={event => { setTime(event.target.value); setErrors({}); }} aria-invalid={Boolean(errors['pickup-time'])} />{err('pickup-time')}</div>
             </div>
-            <Notice>Não há levantamentos à segunda-feira. O dia fica sujeito à confirmação da Gestora.</Notice>
+            {date && isMonday(date) && <Notice>Não há levantamentos à segunda-feira. O dia fica sujeito à confirmação da Gestora.</Notice>}
           </div>}
 
           {step === 2 && <div className="step-body">

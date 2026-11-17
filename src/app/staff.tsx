@@ -44,6 +44,8 @@ export function Staff() {
   const [staffBusy, setStaffBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<'all' | OrderStatus>('all');
+  const [managerSection, setManagerSection] = useState<'management' | 'production'>('management');
+  const [search, setSearch] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
   const paymentKeys = useRef<Record<string, string>>({});
 
@@ -157,17 +159,31 @@ export function Staff() {
   </section>;
 
   const manager = role === 'manager';
+  const productionView = !manager || managerSection === 'production';
   const sorted = [...orders].sort((a, b) => a.pickup_at.localeCompare(b.pickup_at));
-  const visible = manager ? sorted.filter(order => filter === 'all' || order.status === filter) : sorted;
-  const items = orders.flatMap(order => order.items);
+  const productionOrders = sorted.filter(order => ['confirmed', 'in_production', 'ready'].includes(order.status));
+  const normalizedSearch = search.trim().toLocaleLowerCase('pt-PT');
+  const managementOrders = sorted.filter(order => (filter === 'all' || order.status === filter)
+    && (!normalizedSearch || [order.customer_name ?? '', order.customer_phone ?? ''].join(' ').toLocaleLowerCase('pt-PT').includes(normalizedSearch)));
+  const visible = productionView ? productionOrders : managementOrders;
+  const productionItems = productionOrders.flatMap(order => order.items);
   const count = (status: OrderStatus) => orders.filter(order => order.status === status).length;
-  const itemCount = (status: ItemStatus) => items.filter(item => item.production_status === status).length;
+  const itemCount = (status: ItemStatus) => productionItems.filter(item => item.production_status === status).length;
+  const financialOrders = sorted.filter(order => order.status !== 'cancelled');
+  const financialTotal = financialOrders.reduce((sum, order) => sum + (order.total_cents ?? 0), 0);
+  const financialPaid = financialOrders.reduce((sum, order) => sum + (order.amount_paid_cents ?? 0), 0);
+  const financialBalance = financialOrders.reduce((sum, order) => sum + (order.balance_due_cents ?? 0), 0);
 
   return <section className="page staff" aria-labelledby="staff-title">
     <div className="page-heading">
-      <div><p className="eyebrow">{manager ? 'Gestora' : 'Produção'}</p><h1 id="staff-title">{manager ? 'Encomendas' : 'Plano de produção'}</h1></div>
+      <div><p className="eyebrow">{manager ? 'Gestora' : 'Produção'}</p><h1 id="staff-title">{productionView ? 'Plano de produção' : 'Gestão de encomendas'}</h1></div>
       <button type="button" className="text-link" onClick={() => void signOut()}>Terminar sessão</button>
     </div>
+
+    {manager && <div className="filters staff-tabs" role="group" aria-label="Secção da equipa">
+      <button type="button" aria-pressed={!productionView} onClick={() => setManagerSection('management')}>Gestão</button>
+      <button type="button" aria-pressed={productionView} onClick={() => setManagerSection('production')}>Produção</button>
+    </div>}
 
     <div className="staff-toolbar">
       <div className="day-nav" role="group" aria-label="Escolher dia de levantamento">
@@ -178,15 +194,22 @@ export function Staff() {
       <button type="button" className="button secondary" disabled={staffBusy} onClick={() => void loadOrders(staffDate)}>{staffBusy ? 'A atualizar…' : 'Atualizar'}</button>
     </div>
 
-    {loaded && orders.length > 0 && (manager
-      ? <div className="filters scroll-x" role="group" aria-label="Filtrar por estado">{filters.map(({ value, label }) => { const total = value === 'all' ? orders.length : count(value); return total > 0 || value === 'all' ? <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{total}</span></button> : null; })}</div>
-      : <dl className="tiles"><div><dt>Por começar</dt><dd>{itemCount('to_do')}</dd></div><div><dt>Em produção</dt><dd>{itemCount('in_progress')}</dd></div><div><dt>Prontos</dt><dd>{itemCount('ready')}</dd></div></dl>)}
+    {loaded && manager && !productionView && <>
+      <dl className="tiles"><div><dt>Total em encomendas</dt><dd>{euro(financialTotal)}</dd></div><div><dt>Registado como pago</dt><dd>{euro(financialPaid)}</dd></div><div><dt>Por receber</dt><dd>{euro(financialBalance)}</dd></div></dl>
+      <div className="staff-management-tools">
+        <div className="filters scroll-x" role="group" aria-label="Filtrar por estado">{filters.map(({ value, label }) => { const total = value === 'all' ? orders.length : count(value); return total > 0 || value === 'all' ? <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{total}</span></button> : null; })}</div>
+        <label className="staff-search"><span className="sr-only">Pesquisar por nome ou telefone</span><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Pesquisar nome ou telefone" /></label>
+      </div>
+    </>}
+
+    {loaded && productionView && <dl className="tiles"><div><dt>Por começar</dt><dd>{itemCount('to_do')}</dd></div><div><dt>Em produção</dt><dd>{itemCount('in_progress')}</dd></div><div><dt>Prontos</dt><dd>{itemCount('ready')}</dd></div></dl>}
 
     {staffError && <Notice tone="error">{staffError}</Notice>}
     {!loaded && <Loading label="A carregar encomendas…" count={3} />}
-    {loaded && !visible.length && !staffError && <EmptyState title={orders.length ? 'Nenhuma encomenda com este estado' : 'Sem encomendas para este dia'}>{orders.length ? 'Escolha outro filtro.' : 'Escolha outro dia de levantamento ou atualize a lista.'}</EmptyState>}
+    {loaded && !visible.length && !staffError && <EmptyState title={productionView ? 'Sem encomendas em produção' : orders.length ? 'Nenhuma encomenda corresponde aos filtros' : 'Sem encomendas para este dia'}>{productionView ? 'Só aparecem encomendas confirmadas, em produção ou prontas.' : orders.length ? 'Altere o estado ou a pesquisa.' : 'Escolha outro dia de levantamento ou atualize a lista.'}</EmptyState>}
 
     {loaded && visible.length > 0 && <div className="order-list">{visible.map(order => {
+      const managementView = !productionView;
       const balance = order.balance_due_cents ?? 0;
       const paid = order.amount_paid_cents ?? 0;
       const hasCake = order.items.some(item => item.weight_kg !== null);
@@ -196,22 +219,23 @@ export function Staff() {
           <div className="order-who">{manager && <h2>{order.customer_name ?? 'Cliente'}</h2>}{manager && order.customer_phone && <a href={`tel:${order.customer_phone}`}><Icon name="phone" size={15} />{order.customer_phone}</a>}{!manager && <h2>Encomenda #{order.id.slice(0, 6).toUpperCase()}</h2>}</div>
           <Status value={order.status} />
         </header>
-        {manager && order.capacity_resolution_required && <Notice tone="error"><strong>Sinal recebido, mas sem vaga.</strong> Não registe o sinal outra vez: reagende ou registe o reembolso.</Notice>}
+        {managementView && order.capacity_resolution_required && <Notice tone="error"><strong>Sinal recebido, mas sem vaga.</strong> Não registe o sinal outra vez: reagende ou registe o reembolso.</Notice>}
         <div className="order-items">{order.items.map(item => <div className={`order-item${!manager ? ` item--${item.production_status}` : ''}`} key={item.id}>
           <div className="order-item-main">
             <div className="order-item-title"><h3>{item.product_name}</h3><span className="amount">{amountLabel(item)}</span></div>
             {item.cake_message && <p>Mensagem: “{item.cake_message}”</p>}
-            {!manager && <div className="allergy-blocks">
+            {productionView && <div className="allergy-blocks">
               <p className={item.declared_allergies.length ? 'allergy allergy--declared' : 'allergy'}><b>Alergias declaradas</b>{item.declared_allergies.join(', ') || 'Nenhuma'}</p>
               <p className="allergy allergy--product"><b>Alergénios do produto</b>{item.product_allergens.join(', ') || 'Não indicados'}</p>
             </div>}
-            {!manager && item.production_notes && <p className="note"><b>Notas</b>{item.production_notes}</p>}
-            {manager && <Status value={item.production_status} />}
+            {productionView && item.production_notes && <p className="note"><b>Notas</b>{item.production_notes}</p>}
+            {managementView && <Status value={item.production_status} />}
           </div>
-          {!manager && (item.production_status === 'ready' ? <span className="item-done"><Icon name="check" size={18} />Pronto</span> : <button type="button" className="button primary item-action" disabled={staffBusy} onClick={() => void staffAction(() => api.itemStatus(item.id, item.production_status === 'to_do' ? 'in_progress' : 'ready'))}>{item.production_status === 'to_do' ? 'Iniciar' : 'Marcar pronto'}</button>)}
+          {productionView && (item.production_status === 'ready' ? <span className="item-done"><Icon name="check" size={18} />Pronto</span> : <button type="button" className="button primary item-action" disabled={staffBusy} onClick={() => void staffAction(() => api.itemStatus(item.id, item.production_status === 'to_do' ? 'in_progress' : 'ready'))}>{item.production_status === 'to_do' ? 'Iniciar' : 'Marcar pronto'}</button>)}
         </div>)}</div>
-        {manager && <footer className="order-foot">
+        {managementView && <footer className="order-foot">
           <dl className="money money--inline"><div><dt>Total</dt><dd>{euro(order.total_cents ?? 0)}</dd></div><div><dt>Pago</dt><dd>{euro(paid)}</dd></div><div><dt>Por pagar</dt><dd>{euro(balance)}</dd></div></dl>
+          {order.payments?.length ? <div className="payment-list" aria-label="Registos de pagamento">{order.payments.map(payment => <p key={payment.id}><strong>{payment.kind === 'deposit' ? 'Sinal' : payment.kind === 'balance' ? 'Restante' : 'Reembolso'}</strong><span>{euro(payment.amount_cents)} · {new Date(payment.recorded_at).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' })}</span>{payment.note && <small>{payment.note}</small>}</p>)}</div> : <p className="muted payment-empty">Sem pagamentos registados.</p>}
           <div className="order-actions">
             {order.status === 'pending' && !order.capacity_resolution_required && (hasCake
               ? <button type="button" className="button primary" disabled={staffBusy} onClick={() => askPayment(order, 'deposit', order.deposit_required_cents ?? 0)}>Registar sinal {euro(order.deposit_required_cents ?? 0)}</button>

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    await requireStaff(['production']);
+    await requireStaff(['manager', 'production']);
     assertSameOrigin(request);
     const { id } = await context.params;
     if (!z.uuid().safeParse(id).success) throw new ApiError(400, 'VALIDATION_ERROR', 'ID inválido.');

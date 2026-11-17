@@ -52,9 +52,13 @@ test('48 hour refund boundary is exact', () => {
   assert.throws(() => cancellationRefundCents(2000,1700,new Date(now.getTime()+72*3_600_000),now), e => e instanceof ApiError && e.code === 'PAYMENT_MISMATCH');
 });
 
-test('profile access rejects production from manager actions and inactive users', () => {
+test('manager and production can advance items, but only manager can manage orders and payments', () => {
   assert.equal(assertStaffRole({ role: 'manager', active: true }, ['manager']), 'manager');
+  assert.equal(assertStaffRole({ role: 'manager', active: true }, ['manager', 'production']), 'manager');
+  assert.equal(assertStaffRole({ role: 'production', active: true }, ['manager', 'production']), 'production');
   assert.throws(() => assertStaffRole({ role: 'production', active: true }, ['manager']), e => e instanceof ApiError && e.status === 403);
   assert.throws(() => assertStaffRole({ role: 'manager', active: false }, ['manager']), e => e instanceof ApiError && e.status === 403);
+  assert.throws(() => assertStaffRole({ role: 'production', active: false }, ['manager', 'production']), e => e instanceof ApiError && e.status === 403);
   assert.throws(() => assertStaffRole(undefined, ['production']), e => e instanceof ApiError && e.status === 403);
+  assert.throws(() => assertStaffRole(undefined, ['manager', 'production']), e => e instanceof ApiError && e.status === 403);
 });
