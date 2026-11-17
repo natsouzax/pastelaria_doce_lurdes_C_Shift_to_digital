@@ -89,7 +89,7 @@ export function Staff() {
   const [staffBusy, setStaffBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<'all' | OrderStatus>('all');
-  const [managerSection, setManagerSection] = useState<'management' | 'production'>('management');
+  const [managerSection, setManagerSection] = useState<'dashboard' | 'management' | 'production'>('dashboard');
   const [search, setSearch] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
   const [notifyId, setNotifyId] = useState<string | null>(null);
@@ -256,6 +256,7 @@ export function Staff() {
   </section>;
 
   const manager = role === 'manager';
+  const dashboardView = manager && managerSection === 'dashboard';
   const productionView = !manager || managerSection === 'production';
   const selectedDate = effectiveDate;
   const selectedWeek = selectedWeekStart;
@@ -274,16 +275,45 @@ export function Staff() {
   const financialTotal = financialOrders.reduce((sum, order) => sum + (order.total_cents ?? 0), 0);
   const financialPaid = financialOrders.reduce((sum, order) => sum + (order.amount_paid_cents ?? 0), 0);
   const financialBalance = financialOrders.reduce((sum, order) => sum + (order.balance_due_cents ?? 0), 0);
+  const dashboardOrders = orders.filter(order => order.status !== 'cancelled');
+  const pendingOrders = dashboardOrders.filter(order => order.status === 'pending');
+  const readyOrders = dashboardOrders.filter(order => order.status === 'ready');
+  const dashboardFinancialTotal = dashboardOrders.reduce((sum, order) => sum + (order.total_cents ?? 0), 0);
+  const dashboardFinancialPaid = dashboardOrders.reduce((sum, order) => sum + (order.amount_paid_cents ?? 0), 0);
+  const dashboardFinancialBalance = dashboardOrders.reduce((sum, order) => sum + (order.balance_due_cents ?? 0), 0);
+  const dashboardDays = Array.from({ length: 7 }, (_, index) => shiftDay(selectedWeek, index)).map(date => {
+    const dayOrders = dashboardOrders.filter(order => dayOf(order) === date);
+    const reservedCakes = dayOrders.reduce((sum, order) => {
+      if (!['confirmed', 'in_production', 'ready', 'delivered'].includes(order.status)) return sum;
+      return sum + order.items.filter(item => item.weight_kg !== null).length;
+    }, 0);
+    return {
+      date,
+      orders: dayOrders.length,
+      reservedCakes,
+      remainingCakes: Math.max(0, 6 - reservedCakes),
+      totalCents: dayOrders.reduce((sum, order) => sum + (order.total_cents ?? 0), 0),
+    };
+  });
+  const productDemand = new Map<string, Set<string>>();
+  for (const order of dashboardOrders) for (const item of order.items) {
+    const orderIds = productDemand.get(item.product_name) ?? new Set<string>();
+    orderIds.add(order.id);
+    productDemand.set(item.product_name, orderIds);
+  }
+  const topProducts = [...productDemand.entries()].map(([name, orderIds]) => ({ name, orders: orderIds.size }))
+    .sort((a, b) => b.orders - a.orders || a.name.localeCompare(b.name, 'pt-PT')).slice(0, 5);
 
   return <section className="page staff" aria-labelledby="staff-title">
     <div className="page-heading">
-      <div><p className="eyebrow">{manager ? 'Gestora' : 'Produção'}</p><h1 id="staff-title">{productionView ? 'Plano de produção' : 'Gestão de encomendas'}</h1></div>
+      <div><p className="eyebrow">{manager ? 'Gestora' : 'Produção'}</p><h1 id="staff-title">{dashboardView ? 'Dashboard da equipa' : productionView ? 'Plano de produção' : 'Gestão de encomendas'}</h1></div>
       <button type="button" className="text-link" onClick={() => void signOut()}>Terminar sessão</button>
     </div>
 
     {manager && <div className="filters staff-tabs" role="group" aria-label="Secção da equipa">
-      <button type="button" aria-pressed={!productionView} onClick={() => setManagerSection('management')}>Gestão</button>
-      <button type="button" aria-pressed={productionView} onClick={() => setManagerSection('production')}>Produção</button>
+      <button type="button" aria-pressed={dashboardView} onClick={() => setManagerSection('dashboard')}>Dashboard</button>
+      <button type="button" aria-pressed={!dashboardView && !productionView} onClick={() => setManagerSection('management')}>Gestão</button>
+      <button type="button" aria-pressed={!dashboardView && productionView} onClick={() => setManagerSection('production')}>Produção</button>
     </div>}
 
     <div className="staff-toolbar">
@@ -295,16 +325,57 @@ export function Staff() {
       <button type="button" className="button secondary" disabled={staffBusy} onClick={() => void loadOrders(selectedWeek, shiftDay(selectedWeek, 6))}>{staffBusy ? 'A atualizar…' : 'Atualizar'}</button>
     </div>
 
-    <div className="staff-week" role="group" aria-label="Dias da semana, com contagem de encomendas">
+    {!dashboardView && <div className="staff-week" role="group" aria-label="Dias da semana, com contagem de encomendas">
       {Array.from({ length: 7 }, (_, index) => shiftDay(selectedWeek, index)).map(date => {
         const dayCount = orders.filter(order => dayOf(order) === date && order.status !== 'cancelled').length;
         return <button type="button" key={date} className="staff-week-day" aria-pressed={selectedDate === date} onClick={() => setStaffDate(date)}>
           <span>{weekDayLabel(date)}</span><strong>{dayCount}</strong><small>{dayCount === 1 ? 'pedido' : 'pedidos'}</small>
         </button>;
       })}
-    </div>
+    </div>}
 
-    {loaded && manager && !productionView && <>
+    {loaded && dashboardView && <section className="staff-dashboard" aria-label="Resumo semanal da equipa">
+      <dl className="dashboard-kpis">
+        <div><dt>Encomendas esta semana</dt><dd>{dashboardOrders.length}</dd></div>
+        <div><dt>Aguardam confirmação</dt><dd>{pendingOrders.length}</dd></div>
+        <div><dt>Prontas para levantar</dt><dd>{readyOrders.length}</dd></div>
+        <div><dt>Valor das encomendas</dt><dd>{euro(dashboardFinancialTotal)}</dd></div>
+        <div><dt>Registado como recebido</dt><dd>{euro(dashboardFinancialPaid)}</dd></div>
+        <div><dt>Por receber</dt><dd>{euro(dashboardFinancialBalance)}</dd></div>
+      </dl>
+
+      <section className="dashboard-panel" aria-labelledby="dashboard-capacity-title">
+        <div className="dashboard-panel-heading"><div><p className="eyebrow">Agenda</p><h2 id="dashboard-capacity-title">Levantamentos e capacidade de bolos</h2></div><span>Até 6 bolos personalizados por dia</span></div>
+        <p className="dashboard-capacity-note">Apenas encomendas confirmadas reservam estas vagas. Um pedido pendente ainda precisa de confirmação da Gestora.</p>
+        <div className="dashboard-days">{dashboardDays.map(day => <article className="dashboard-day" key={day.date}>
+          <div className="dashboard-day-heading"><strong>{weekDayLabel(day.date)}</strong><span>{day.orders} {day.orders === 1 ? 'pedido' : 'pedidos'}</span></div>
+          <div className="dashboard-capacity-label"><span>Bolos personalizados</span><b>{day.reservedCakes}/6</b></div>
+          <div className="dashboard-capacity-track" role="progressbar" aria-label={`Capacidade de bolos personalizados em ${weekDayLabel(day.date)}`} aria-valuemin={0} aria-valuemax={6} aria-valuenow={Math.min(day.reservedCakes, 6)}><span style={{ width: `${Math.min(day.reservedCakes / 6, 1) * 100}%` }} /></div>
+          <p className={day.remainingCakes === 0 ? 'dashboard-capacity-full' : 'dashboard-capacity-open'}>{day.remainingCakes === 1 ? '1 vaga restante' : `${day.remainingCakes} vagas restantes`}</p>
+          <small>Valor dos pedidos: {euro(day.totalCents)}</small>
+          <button type="button" className="text-link" onClick={() => { setStaffDate(day.date); setFilter('all'); setManagerSection('management'); }}>Ver Gestão do dia</button>
+        </article>)}</div>
+      </section>
+
+      <div className="dashboard-lower">
+        <section className="dashboard-panel" aria-labelledby="dashboard-actions-title">
+          <div className="dashboard-panel-heading"><div><p className="eyebrow">Acompanhar</p><h2 id="dashboard-actions-title">Pontos de atenção</h2></div></div>
+          <ul className="dashboard-attention">
+            <li><span>Pedidos pendentes</span><strong>{pendingOrders.length}</strong></li>
+            <li><span>Prontos com saldo por receber</span><strong>{readyOrders.filter(order => (order.balance_due_cents ?? 0) > 0).length}</strong></li>
+            <li><span>Sem vaga após pagamento</span><strong>{dashboardOrders.filter(order => order.capacity_resolution_required).length}</strong></li>
+          </ul>
+          <button type="button" className="button secondary" onClick={() => { if (pendingOrders[0]) setStaffDate(dayOf(pendingOrders[0])); setFilter('pending'); setManagerSection('management'); }}>Ver pedidos pendentes</button>
+        </section>
+
+        <section className="dashboard-panel" aria-labelledby="dashboard-products-title">
+          <div className="dashboard-panel-heading"><div><p className="eyebrow">Procura</p><h2 id="dashboard-products-title">Produtos mais pedidos</h2></div></div>
+          {topProducts.length ? <ol className="dashboard-products">{topProducts.map(product => <li key={product.name}><span>{product.name}</span><strong>{product.orders} {product.orders === 1 ? 'pedido' : 'pedidos'}</strong></li>)}</ol> : <p className="muted">Ainda não há pedidos nesta semana.</p>}
+        </section>
+      </div>
+    </section>}
+
+    {loaded && manager && !dashboardView && !productionView && <>
       <dl className="tiles"><div><dt>Total em encomendas</dt><dd>{euro(financialTotal)}</dd></div><div><dt>Registado como pago</dt><dd>{euro(financialPaid)}</dd></div><div><dt>Por receber</dt><dd>{euro(financialBalance)}</dd></div></dl>
       <div className="staff-management-tools">
         <div className="filters scroll-x" role="group" aria-label="Filtrar por estado">{filters.map(({ value, label }) => { const total = value === 'all' ? dayOrders.length : count(value); return total > 0 || value === 'all' ? <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}<span>{total}</span></button> : null; })}</div>
@@ -312,13 +383,13 @@ export function Staff() {
       </div>
     </>}
 
-    {loaded && productionView && <dl className="tiles"><div><dt>Por começar</dt><dd>{itemCount('to_do')}</dd></div><div><dt>Em produção</dt><dd>{itemCount('in_progress')}</dd></div><div><dt>Prontos</dt><dd>{itemCount('ready')}</dd></div></dl>}
+    {loaded && !dashboardView && productionView && <dl className="tiles"><div><dt>Por começar</dt><dd>{itemCount('to_do')}</dd></div><div><dt>Em produção</dt><dd>{itemCount('in_progress')}</dd></div><div><dt>Prontos</dt><dd>{itemCount('ready')}</dd></div></dl>}
 
     {staffError && <Notice tone="error">{staffError}</Notice>}
     {!loaded && <Loading label="A carregar encomendas…" count={3} />}
-    {loaded && !visible.length && !staffError && <EmptyState title={productionView ? 'Sem encomendas em produção neste dia' : dayOrders.length ? 'Nenhuma encomenda corresponde aos filtros' : 'Sem levantamentos neste dia'}>{productionView ? 'Escolha outro dia na semana. Só aparecem encomendas confirmadas, em produção ou prontas.' : dayOrders.length ? 'Altere o estado ou a pesquisa.' : 'Escolha outro dia na semana.'}</EmptyState>}
+    {!dashboardView && loaded && !visible.length && !staffError && <EmptyState title={productionView ? 'Sem encomendas em produção neste dia' : dayOrders.length ? 'Nenhuma encomenda corresponde aos filtros' : 'Sem levantamentos neste dia'}>{productionView ? 'Escolha outro dia na semana. Só aparecem encomendas confirmadas, em produção ou prontas.' : dayOrders.length ? 'Altere o estado ou a pesquisa.' : 'Escolha outro dia na semana.'}</EmptyState>}
 
-    {loaded && visible.length > 0 && <div className="order-list">{visible.map(order => {
+    {!dashboardView && loaded && visible.length > 0 && <div className="order-list">{visible.map(order => {
       const managementView = !productionView;
       const balance = order.balance_due_cents ?? 0;
       const paid = order.amount_paid_cents ?? 0;
